@@ -34,23 +34,11 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
     
     const configStr = useMemo(() => JSON.stringify(config), [config]);
     
-    // Main effect: engine lifecycle tied to config changes
+    // Engine initialization and destruction
     useEffect(() => {
-      if (!elementRef.current || !active) {
-        engineRef.current?.destroy();
-        engineRef.current = null;
-        return;
-      }
+      if (!elementRef.current || !active) return;
       
-      const parsedConfig = JSON.parse(configStr);
-      
-      if (!engineRef.current) {
-        // Create new engine
-        engineRef.current = new LiquidGlassEngine(elementRef.current, parsedConfig);
-      } else {
-        // Update existing engine config (much faster, no DOM remount)
-        engineRef.current.updateConfig(parsedConfig);
-      }
+      engineRef.current = new LiquidGlassEngine(elementRef.current, JSON.parse(configStr));
       
       // Enable liquid press if requested
       if (liquidPress) {
@@ -58,7 +46,7 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
         engineRef.current.enableLiquidPress(pressConfig);
       }
       
-      // Animate in ONLY on first mount — not on config updates
+      // Animate in ONLY on first mount
       if (!mountedRef.current) {
         mountedRef.current = true;
         
@@ -73,22 +61,34 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
         }
       }
       
-      // Performance reporting
+      return () => {
+        engineRef.current?.destroy();
+        engineRef.current = null;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [active]); // Only re-run if 'active' toggle changes
+    
+    // Config updates
+    useEffect(() => {
+      if (engineRef.current && active) {
+        engineRef.current.updateConfig(JSON.parse(configStr));
+      }
+    }, [configStr, active]);
+    
+    // Performance reporting
+    useEffect(() => {
       let interval: ReturnType<typeof setInterval> | undefined;
-      if (onPerformanceUpdate) {
+      if (onPerformanceUpdate && active) {
         interval = setInterval(() => {
           if (engineRef.current) {
             onPerformanceUpdate(engineRef.current.getPerformanceMetrics());
           }
         }, 1000);
       }
-      
       return () => {
         if (interval) clearInterval(interval);
-        engineRef.current?.destroy();
-        engineRef.current = null;
       };
-    }, [active, configStr, onPerformanceUpdate]);
+    }, [onPerformanceUpdate, active]);
     
     useImperativeHandle(ref, () => ({
       engine: engineRef.current,
