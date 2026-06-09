@@ -42,11 +42,15 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
         return;
       }
       
-      // Destroy previous engine
-      engineRef.current?.destroy();
+      const parsedConfig = JSON.parse(configStr);
       
-      // Create new engine with current config
-      engineRef.current = new LiquidGlassEngine(elementRef.current, JSON.parse(configStr));
+      if (!engineRef.current) {
+        // Create new engine
+        engineRef.current = new LiquidGlassEngine(elementRef.current, parsedConfig);
+      } else {
+        // Update existing engine config (much faster, no DOM remount)
+        engineRef.current.updateConfig(parsedConfig);
+      }
       
       // Enable liquid press if requested
       if (liquidPress) {

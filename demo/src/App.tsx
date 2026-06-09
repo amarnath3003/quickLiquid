@@ -25,13 +25,16 @@ const GLASS_BASE: Partial<LiquidGlassConfig> = {
 function App() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activeTab, setActiveTab] = useState(0);
-  const [userConfig, setUserConfig] = useState<Partial<LiquidGlassConfig>>({
-    borderRadius: 32,
-  });
+  const [userConfig, setUserConfig] = useState<Partial<LiquidGlassConfig>>({});
   
-  // Merge GLASS_BASE with user overrides to ensure we always get latest defaults
-  // even across Hot Module Replacement which preserves state.
-  const config = { ...GLASS_BASE, ...userConfig, dynamicLighting: false };
+  // Create a helper to merge configs so that user overrides ALWAYS win,
+  // overriding any component-specific local defaults.
+  const getConfig = useCallback((localOverrides: Partial<LiquidGlassConfig> = {}) => ({
+    ...GLASS_BASE,
+    ...localOverrides,
+    ...userConfig,
+    dynamicLighting: false
+  }), [userConfig]);
 
   const handlePerf = useCallback((m: Metrics) => setMetrics(m), []);
 
@@ -70,6 +73,9 @@ function App() {
     tabBarCtrlRef.current?.select(index);
   };
 
+  // We need a stable reference to the global slider config to display slider values
+  const sliderValues = getConfig({ borderRadius: 32 });
+
   return (
     <>
       <div className="scene-background" />
@@ -79,7 +85,7 @@ function App() {
       <div className="grid-pattern" />
 
       {/* Perf HUD */}
-      <LiquidGlass config={{ ...config, borderRadius: 12 }} className="perf-hud">
+      <LiquidGlass config={getConfig({ borderRadius: 12 })} className="perf-hud">
         <strong>Perf</strong><br />
         Avg: {metrics ? `${metrics.avgFrameTime.toFixed(2)}ms` : '—'}<br />
         Frames: {metrics?.frameCount ?? 0}
@@ -93,7 +99,7 @@ function App() {
 
         {/* Nav bar */}
         <LiquidGlass
-          config={{ ...config, borderRadius: 50 }}
+          config={getConfig({ borderRadius: 50 })}
           className="glass-nav"
           onPerformanceUpdate={handlePerf}
           liquidPress
@@ -105,7 +111,7 @@ function App() {
         {/* Hero pill */}
         <div className="hero-scene">
           <div className="hero-bg-text" aria-hidden="true">Liquid Glass</div>
-          <LiquidGlass config={{ ...config, borderRadius: 999 }} className="glass-hero-pill" animateIn={200} />
+          <LiquidGlass config={getConfig({ borderRadius: 999 })} className="glass-hero-pill" animateIn={200} />
         </div>
 
         <div className="section-header">
@@ -115,7 +121,7 @@ function App() {
 
         {/* Tab bar */}
         <div className="tab-bar-demo">
-          <LiquidGlass config={{ ...config, borderRadius: 50 }} className="glass-tab-bar">
+          <LiquidGlass config={getConfig({ borderRadius: 50 })} className="glass-tab-bar">
             <div className="tab-bar-inner" ref={tabBarRef}>
               {['Home', 'Search', 'Library', 'Profile'].map((label, i) => (
                 <button key={label} className={`tab-item ${activeTab === i ? 'active' : ''}`}
@@ -133,7 +139,7 @@ function App() {
           <p>Drag the glass blobs close together.</p>
           <div className="merge-container" ref={mergeContainerRef}>
             {['A','B','C'].map(l => (
-              <LiquidGlass key={l} config={{ ...config, borderRadius: 999 }} className="merge-blob" liquidPress>
+              <LiquidGlass key={l} config={getConfig({ borderRadius: 999 })} className="merge-blob" liquidPress>
                 <span>{l}</span>
               </LiquidGlass>
             ))}
@@ -145,91 +151,91 @@ function App() {
           <h3>Liquid Buttons</h3>
           <p>Press and hold — spring physics.</p>
           <div className="button-row">
-            <LiquidGlass config={{ ...config, borderRadius: 50 }} className="glass-btn" liquidPress animateIn={0}>Bouncy</LiquidGlass>
-            <LiquidGlass config={{ ...config, borderRadius: 14 }} className="glass-btn" liquidPress={{ scale: 0.88, squish: 0.04 }} animateIn={100}>Squishy</LiquidGlass>
-            <LiquidGlass config={{ ...config, borderRadius: 50 }} className="glass-btn" liquidPress={{ scale: 0.96, squish: 0.01 }} animateIn={200}>Prismatic</LiquidGlass>
+            <LiquidGlass config={getConfig({ borderRadius: 50 })} className="glass-btn" liquidPress animateIn={0}>Bouncy</LiquidGlass>
+            <LiquidGlass config={getConfig({ borderRadius: 14 })} className="glass-btn" liquidPress={{ scale: 0.88, squish: 0.04 }} animateIn={100}>Squishy</LiquidGlass>
+            <LiquidGlass config={getConfig({ borderRadius: 50 })} className="glass-btn" liquidPress={{ scale: 0.96, squish: 0.01 }} animateIn={200}>Prismatic</LiquidGlass>
           </div>
         </div>
 
         {/* Showcase cards */}
         <div className="demo-grid">
-          <LiquidGlass config={{ ...config, borderRadius: 28 }} className="glass-panel" animateIn={0} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={0} liquidPress>
             <h2>Liquid Glass</h2>
             <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={{ ...config, borderRadius: 28 }} className="glass-panel" animateIn={120} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={120} liquidPress>
             <h2>Prismatic</h2>
             <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={{ ...config, borderRadius: 28 }} className="glass-panel" animateIn={240} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={240} liquidPress>
             <h2>Frosted</h2>
             <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={{ ...config, borderRadius: 28 }} className="glass-panel" animateIn={360} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={360} liquidPress>
             <h2>Crystal Clear</h2>
             <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
           </LiquidGlass>
         </div>
 
         {/* Controls */}
-        <LiquidGlass config={{ ...config, borderRadius: 24 }} className="controls" liquidPress>
+        <LiquidGlass config={getConfig({ borderRadius: 24 })} className="controls" liquidPress>
           <h3>Live Configuration</h3>
           <div className="slider-row">
             <label>Blur</label>
-            <input type="range" min="0" max="40" step="0.5" value={config.blur}
+            <input type="range" min="0" max="40" step="0.5" value={sliderValues.blur}
               onChange={e => setUserConfig(c => ({ ...c, blur: +e.target.value }))} />
-            <span className="value">{config.blur}px</span>
+            <span className="value">{sliderValues.blur}px</span>
           </div>
           <div className="slider-row">
             <label>Saturation</label>
-            <input type="range" min="1.0" max="2.5" step="0.05" value={config.saturation}
+            <input type="range" min="1.0" max="2.5" step="0.05" value={sliderValues.saturation}
               onChange={e => setUserConfig(c => ({ ...c, saturation: +e.target.value }))} />
-            <span className="value">{config.saturation?.toFixed(2)}</span>
+            <span className="value">{sliderValues.saturation?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Edge Highlight</label>
-            <input type="range" min="0" max="1" step="0.05" value={config.edgeHighlight}
+            <input type="range" min="0" max="1" step="0.05" value={sliderValues.edgeHighlight}
               onChange={e => setUserConfig(c => ({ ...c, edgeHighlight: +e.target.value }))} />
-            <span className="value">{config.edgeHighlight?.toFixed(2)}</span>
+            <span className="value">{sliderValues.edgeHighlight?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Specular</label>
-            <input type="range" min="0" max="1" step="0.05" value={config.specularStrength}
+            <input type="range" min="0" max="1" step="0.05" value={sliderValues.specularStrength}
               onChange={e => setUserConfig(c => ({ ...c, specularStrength: +e.target.value }))} />
-            <span className="value">{config.specularStrength?.toFixed(2)}</span>
+            <span className="value">{sliderValues.specularStrength?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Chromatic Aberr.</label>
-            <input type="range" min="0" max="1" step="0.05" value={config.chromaticAberration}
+            <input type="range" min="0" max="1" step="0.05" value={sliderValues.chromaticAberration}
               onChange={e => setUserConfig(c => ({ ...c, chromaticAberration: +e.target.value }))} />
-            <span className="value">{config.chromaticAberration?.toFixed(2)}</span>
+            <span className="value">{sliderValues.chromaticAberration?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Border Radius</label>
-            <input type="range" min="4" max="64" step="1" value={config.borderRadius}
+            <input type="range" min="4" max="64" step="1" value={sliderValues.borderRadius}
               onChange={e => setUserConfig(c => ({ ...c, borderRadius: +e.target.value }))} />
-            <span className="value">{config.borderRadius}px</span>
+            <span className="value">{sliderValues.borderRadius}px</span>
           </div>
           <div className="slider-row">
             <label>Shadow Depth</label>
-            <input type="range" min="0" max="16" step="1" value={config.thickness}
+            <input type="range" min="0" max="16" step="1" value={sliderValues.thickness}
               onChange={e => setUserConfig(c => ({ ...c, thickness: +e.target.value }))} />
-            <span className="value">{config.thickness}px</span>
+            <span className="value">{sliderValues.thickness}px</span>
           </div>
           <div className="slider-row">
             <label>Tint Opacity</label>
-            <input type="range" min="0" max="0.20" step="0.005" value={config.tintOpacity}
+            <input type="range" min="0" max="0.20" step="0.005" value={sliderValues.tintOpacity}
               onChange={e => setUserConfig(c => ({ ...c, tintOpacity: +e.target.value }))} />
-            <span className="value">{config.tintOpacity?.toFixed(3)}</span>
+            <span className="value">{sliderValues.tintOpacity?.toFixed(3)}</span>
           </div>
           <div className="slider-row">
             <label>Refraction</label>
-            <input type="range" min="0" max="50" step="1" value={config.refractionStrength}
+            <input type="range" min="0" max="50" step="1" value={sliderValues.refractionStrength}
               onChange={e => setUserConfig(c => ({ ...c, refractionStrength: +e.target.value }))} />
-            <span className="value">{config.refractionStrength}</span>
+            <span className="value">{sliderValues.refractionStrength}</span>
           </div>
         </LiquidGlass>
       </div>
