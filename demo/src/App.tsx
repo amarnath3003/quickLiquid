@@ -5,16 +5,15 @@ import { LiquidGroup, LiquidGesture, LiquidTabBar } from 'quick-liquid';
 
 interface Metrics { avgFrameTime: number; lastFrameTime: number; frameCount: number; quality: string; }
 
-// The single glass config used everywhere — Apple liquid glass defaults
 const GLASS_BASE: Partial<LiquidGlassConfig> = {
-  blur: 12,
-  saturation: 1.6,
-  refractionStrength: 40,
-  edgeHighlight: 0.9,
-  specularStrength: 1.0,
-  chromaticAberration: 0.15,
-  thickness: 4,
-  dynamicLighting: true,
+  blur: 24,
+  saturation: 1.8,
+  refractionStrength: 18,
+  edgeHighlight: 0.4,
+  specularStrength: 0.3,
+  chromaticAberration: 0.05,
+  thickness: 2,
+  dynamicLighting: false,
   tintOpacity: 0.15,
   ior: 1.45,
   lightAngle: -60,
@@ -177,7 +176,7 @@ function App() {
           <h3>Live Configuration</h3>
           <div className="slider-row">
             <label>Blur</label>
-            <input type="range" min="0" max="20" step="0.5" value={config.blur}
+            <input type="range" min="0" max="40" step="0.5" value={config.blur}
               onChange={e => setConfig(c => ({ ...c, blur: +e.target.value }))} />
             <span className="value">{config.blur}px</span>
           </div>

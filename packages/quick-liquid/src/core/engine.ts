@@ -102,21 +102,21 @@ export interface LiquidGlassConfig {
 }
 
 export const DEFAULT_CONFIG: LiquidGlassConfig = {
-  blur: 12,
-  saturation: 1.6,
+  blur: 24,
+  saturation: 1.8,
   borderRadius: 32,
-  refractionStrength: 40,
+  refractionStrength: 18,
   ior: 1.45,
-  edgeHighlight: 0.9,
-  chromaticAberration: 0.15,
-  thickness: 4,
+  edgeHighlight: 0.4,
+  chromaticAberration: 0.05,
+  thickness: 2,
   lightAngle: -60,
   dynamicLighting: false,
   quality: 'high',
   refractionMode: 'auto',
   tint: '255, 255, 255',
   tintOpacity: 0.15,
-  specularStrength: 1.0,
+  specularStrength: 0.3,
 };
 
 let uid = 0;
@@ -287,16 +287,11 @@ export class LiquidGlassEngine {
       pointerEvents: 'none',
       background: [
         // Top-center convex highlight — wide and soft like a curved lens
-        `radial-gradient(ellipse 80% 50% at 50% -10%,
-          rgba(255,255,255,0.10) 0%,
-          rgba(255,255,255,0.04) 50%,
+        `radial-gradient(ellipse 100% 100% at 50% -20%,
+          rgba(255,255,255,0.06) 0%,
+          rgba(255,255,255,0.02) 50%,
           transparent 100%
-        )`,
-        // Bottom shadow — glass bends light away from the bottom
-        `linear-gradient(180deg,
-          transparent 50%,
-          rgba(0,0,0,0.06) 100%
-        )`,
+        )`
       ].join(', '),
     });
     this.curvatureLayer = layer;
@@ -358,29 +353,22 @@ export class LiquidGlassEngine {
     const b = Math.round(255 - ca * 5);
 
     this.specularLayer.style.background = [
-      // 1. PRIMARY SPECULAR CRESCENT — tight, very bright ellipse.
-      //    The single most important visual cue for glass.
-      //    Simulates direct Fresnel reflection of a room light source.
-      `radial-gradient(ellipse 42% 18% at ${hx.toFixed(1)}% ${hy.toFixed(1)}%,
-        rgba(${r},${g},${b},${(hi * 0.90).toFixed(3)}) 0%,
-        rgba(255,255,255,${(hi * 0.55).toFixed(3)}) 30%,
-        rgba(255,255,255,${(hi * 0.18).toFixed(3)}) 60%,
+      // 1. PRIMARY SPECULAR — extremely soft, wide ambient glow (Apple style)
+      `radial-gradient(ellipse 120% 60% at ${hx.toFixed(1)}% ${hy.toFixed(1)}%,
+        rgba(${r},${g},${b},${(hi * 0.40).toFixed(3)}) 0%,
+        rgba(255,255,255,${(hi * 0.15).toFixed(3)}) 40%,
         transparent 100%
       )`,
       // 2. SOFT SHOULDER — wide gentle glow behind the hotspot.
-      //    Simulates subsurface/diffuse Fresnel on the curved rim.
-      `radial-gradient(ellipse 80% 40% at ${hx.toFixed(1)}% 0%,
-        rgba(255,255,255,${(hi * 0.28).toFixed(3)}) 0%,
-        rgba(255,255,255,${(hi * 0.10).toFixed(3)}) 50%,
+      `radial-gradient(ellipse 150% 50% at ${hx.toFixed(1)}% 0%,
+        rgba(255,255,255,${(hi * 0.15).toFixed(3)}) 0%,
         transparent 100%
       )`,
-      // 3. TOP EDGE LINE — simulates the top glass face reflecting light.
-      //    Extremely thin, fades by ~6% height. This is the "glass thickness" cue.
+      // 3. TOP EDGE LINE — extremely thin, low opacity
       `linear-gradient(180deg,
-        rgba(255,255,255,${(hi * 0.65).toFixed(3)}) 0%,
-        rgba(255,255,255,${(hi * 0.22).toFixed(3)}) 2%,
-        rgba(255,255,255,${(hi * 0.05).toFixed(3)}) 5%,
-        transparent 8%
+        rgba(255,255,255,${(hi * 0.30).toFixed(3)}) 0%,
+        rgba(255,255,255,${(hi * 0.05).toFixed(3)}) 2%,
+        transparent 5%
       )`,
     ].join(', ');
   }
@@ -423,9 +411,9 @@ export class LiquidGlassEngine {
     const gradAngle = ((angle + 180) % 360);
 
     // Border opacities based on Fresnel: lit face is ~85%, shadow face ~20%
-    const topOp   = Math.min(0.85, hi * 0.85);
-    const sideOp  = Math.min(0.45, hi * 0.45);
-    const btmOp   = Math.min(0.20, hi * 0.20);
+    const topOp   = Math.min(0.40, hi * 0.40);
+    const sideOp  = Math.min(0.15, hi * 0.15);
+    const btmOp   = Math.min(0.05, hi * 0.05);
 
     // Chromatic aberration on the border edges — very subtle color fringes
     // These appear on rounded corners where light splits into spectrum
@@ -449,21 +437,18 @@ export class LiquidGlassEngine {
         `linear-gradient(${gradAngle}deg,
           rgba(255,255,255,${topOp.toFixed(3)})  0%,
           rgba(255,255,255,${sideOp.toFixed(3)}) 30%,
-          rgba(255,255,255,${btmOp.toFixed(3)})  65%,
-          rgba(255,255,255,${(btmOp * 0.8).toFixed(3)}) 100%
+          rgba(255,255,255,${btmOp.toFixed(3)})  100%
         )`,
       ].join(', '),
       backgroundOrigin: 'border-box',
       backgroundClip: 'padding-box, border-box',
       boxShadow: [
         // Inner top rim — simulates the top glass face at the border
-        `inset 0 1px 0 rgba(255,255,255,${(hi * 0.75).toFixed(3)})`,
+        `inset 0 1px 0 rgba(255,255,255,${(hi * 0.40).toFixed(3)})`,
         // Inner bottom dimmer edge
-        `inset 0 -1px 0 rgba(255,255,255,${(hi * 0.08).toFixed(3)})`,
+        `inset 0 -1px 0 rgba(255,255,255,${(hi * 0.04).toFixed(3)})`,
         // Outer glow — barely visible, just enough to separate from background
-        `0 0 0 0.5px rgba(255,255,255,${(hi * 0.12).toFixed(3)})`,
-        // Drop shadow (handled by applyDepth, but add a tight contact shadow)
-        `0 2px 4px rgba(0,0,0,0.15)`,
+        `0 0 0 0.5px rgba(255,255,255,${(hi * 0.05).toFixed(3)})`,
         ...caBoxShadows,
       ].join(', '),
     });
@@ -479,12 +464,9 @@ export class LiquidGlassEngine {
     const t = this.cfg.thickness;
     if (t < 1) { this.el.style.boxShadow = 'none'; return; }
     this.el.style.boxShadow = [
-      // Tight contact shadow (hard, dark)
-      `0 ${Math.round(t * 0.5)}px ${Math.round(t)}px rgba(0,0,0,0.28)`,
-      // Medium elevation shadow
-      `0 ${Math.round(t)}px ${Math.round(t * 3)}px rgba(0,0,0,0.18)`,
-      // Wide ambient shadow (soft, light)
-      `0 ${Math.round(t * 2)}px ${Math.round(t * 10)}px rgba(0,0,0,0.10)`,
+      // Soft, wide ambient spatial shadow (Apple style)
+      `0 ${Math.round(t * 4)}px ${Math.round(t * 16)}px rgba(0,0,0,0.12)`,
+      `0 ${Math.round(t)}px ${Math.round(t * 4)}px rgba(0,0,0,0.04)`
     ].join(', ');
   }
 
