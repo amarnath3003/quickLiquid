@@ -1,0 +1,52 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build and Bundler outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.parcel-cache/
+.cache/
+.vite/
+.docusaurus/
+
+# TypeScript cache files
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Coverage and test outputs
+coverage/
+*.lcov
+.nyc_output
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata files
+.DS_Store
+Thumbs.db
+
+# Local environment variables config files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local

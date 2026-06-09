@@ -1,0 +1,14 @@
+{
+  "name": "quick-liquid-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/quick-liquid",
+    "demo"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=demo",
+    "build:lib": "npm run build --workspace=packages/quick-liquid",
+    "build": "npm run build:lib && npm run build --workspace=demo",
+    "typecheck": "npm run typecheck --workspace=packages/quick-liquid"
+  }
+}
