@@ -27,12 +27,14 @@ function App() {
   const [activeTab, setActiveTab] = useState(0);
   const [userConfig, setUserConfig] = useState<Partial<LiquidGlassConfig>>({});
   
-  // Create a helper to merge configs so that user overrides ALWAYS win,
-  // overriding any component-specific local defaults.
+  // Create a helper to merge configs.
+  // We place userConfig BEFORE localOverrides so that the sliders affect the base
+  // properties of the whole page, BUT the showcase cards keep their defining 
+  // hardcoded characteristics (like Crystal Clear always having 0 blur).
   const getConfig = useCallback((localOverrides: Partial<LiquidGlassConfig> = {}) => ({
     ...GLASS_BASE,
-    ...localOverrides,
     ...userConfig,
+    ...localOverrides,
     dynamicLighting: false
   }), [userConfig]);
 
@@ -74,7 +76,8 @@ function App() {
   };
 
   // We need a stable reference to the global slider config to display slider values
-  const sliderValues = getConfig({ borderRadius: 32 });
+  // Pass empty object so we don't accidentally override the base userConfig values
+  const sliderValues = getConfig({});
 
   return (
     <>
@@ -158,25 +161,26 @@ function App() {
         </div>
 
         {/* Showcase cards */}
+        {/* Showcase cards */}
         <div className="demo-grid">
           <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={0} liquidPress>
             <h2>Liquid Glass</h2>
-            <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
+            <p>The standard Apple-like default. Deep frosted blur, subtle edge highlights, and pure optical refraction.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={120} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28, chromaticAberration: 0.8, refractionStrength: 35 })} className="glass-panel" animateIn={120} liquidPress>
             <h2>Prismatic</h2>
-            <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
+            <p>High chromatic aberration splits the light like a prism, creating beautiful colorful fringing at the edges.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={240} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 40, refractionStrength: 5, tintOpacity: 0.35, saturation: 1.0 })} className="glass-panel" animateIn={240} liquidPress>
             <h2>Frosted</h2>
-            <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
+            <p>Heavy blur and tint opacity with minimal optical distortion. Perfect for modal backdrops and floating panels.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={360} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 2, refractionStrength: 45, specularStrength: 0.8, edgeHighlight: 0.9, tintOpacity: 0.0 })} className="glass-panel" animateIn={360} liquidPress>
             <h2>Crystal Clear</h2>
-            <p>Pure glass — the scene shows through completely. Defined by a crisp rim, thin specular streak, and subtle edge highlights.</p>
+            <p>Almost zero blur but massive refraction and intense specular highlights. Looks like a polished, heavy piece of crystal.</p>
           </LiquidGlass>
         </div>
 
