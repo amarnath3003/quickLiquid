@@ -25,10 +25,13 @@ const GLASS_BASE: Partial<LiquidGlassConfig> = {
 function App() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activeTab, setActiveTab] = useState(0);
-  const [config, setConfig] = useState<Partial<LiquidGlassConfig>>({
-    ...GLASS_BASE,
+  const [userConfig, setUserConfig] = useState<Partial<LiquidGlassConfig>>({
     borderRadius: 32,
   });
+  
+  // Merge GLASS_BASE with user overrides to ensure we always get latest defaults
+  // even across Hot Module Replacement which preserves state.
+  const config = { ...GLASS_BASE, ...userConfig, dynamicLighting: false };
 
   const handlePerf = useCallback((m: Metrics) => setMetrics(m), []);
 
@@ -177,55 +180,55 @@ function App() {
           <div className="slider-row">
             <label>Blur</label>
             <input type="range" min="0" max="40" step="0.5" value={config.blur}
-              onChange={e => setConfig(c => ({ ...c, blur: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, blur: +e.target.value }))} />
             <span className="value">{config.blur}px</span>
           </div>
           <div className="slider-row">
             <label>Saturation</label>
             <input type="range" min="1.0" max="2.5" step="0.05" value={config.saturation}
-              onChange={e => setConfig(c => ({ ...c, saturation: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, saturation: +e.target.value }))} />
             <span className="value">{config.saturation?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Edge Highlight</label>
             <input type="range" min="0" max="1" step="0.05" value={config.edgeHighlight}
-              onChange={e => setConfig(c => ({ ...c, edgeHighlight: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, edgeHighlight: +e.target.value }))} />
             <span className="value">{config.edgeHighlight?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Specular</label>
             <input type="range" min="0" max="1" step="0.05" value={config.specularStrength}
-              onChange={e => setConfig(c => ({ ...c, specularStrength: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, specularStrength: +e.target.value }))} />
             <span className="value">{config.specularStrength?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Chromatic Aberr.</label>
             <input type="range" min="0" max="1" step="0.05" value={config.chromaticAberration}
-              onChange={e => setConfig(c => ({ ...c, chromaticAberration: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, chromaticAberration: +e.target.value }))} />
             <span className="value">{config.chromaticAberration?.toFixed(2)}</span>
           </div>
           <div className="slider-row">
             <label>Border Radius</label>
             <input type="range" min="4" max="64" step="1" value={config.borderRadius}
-              onChange={e => setConfig(c => ({ ...c, borderRadius: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, borderRadius: +e.target.value }))} />
             <span className="value">{config.borderRadius}px</span>
           </div>
           <div className="slider-row">
             <label>Shadow Depth</label>
             <input type="range" min="0" max="16" step="1" value={config.thickness}
-              onChange={e => setConfig(c => ({ ...c, thickness: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, thickness: +e.target.value }))} />
             <span className="value">{config.thickness}px</span>
           </div>
           <div className="slider-row">
             <label>Tint Opacity</label>
             <input type="range" min="0" max="0.20" step="0.005" value={config.tintOpacity}
-              onChange={e => setConfig(c => ({ ...c, tintOpacity: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, tintOpacity: +e.target.value }))} />
             <span className="value">{config.tintOpacity?.toFixed(3)}</span>
           </div>
           <div className="slider-row">
             <label>Refraction</label>
             <input type="range" min="0" max="50" step="1" value={config.refractionStrength}
-              onChange={e => setConfig(c => ({ ...c, refractionStrength: +e.target.value }))} />
+              onChange={e => setUserConfig(c => ({ ...c, refractionStrength: +e.target.value }))} />
             <span className="value">{config.refractionStrength}</span>
           </div>
         </LiquidGlass>

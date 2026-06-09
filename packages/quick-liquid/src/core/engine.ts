@@ -733,20 +733,23 @@ export class LiquidGlassEngine {
   // ═══════════════════════════════════════════════════════════
   //  POINTER TRACKING
   // ═══════════════════════════════════════════════════════════
+  private _pointerMoveHandler?: (e: PointerEvent) => void;
+  private _pointerLeaveHandler?: () => void;
+
   private setupPointer(): void {
-    const onMove = (e: PointerEvent) => {
+    this._pointerMoveHandler = (e: PointerEvent) => {
       const rect = this.el.getBoundingClientRect();
       const px = (e.clientX - rect.left) / rect.width;
       const py = (e.clientY - rect.top) / rect.height;
       this.targetAngle = Math.atan2(py - 0.5, px - 0.5) * (180 / Math.PI) - 90;
       if (!this.animatingLight) { this.animatingLight = true; this.tickLight(); }
     };
-    const onLeave = () => {
+    this._pointerLeaveHandler = () => {
       this.targetAngle = this.cfg.lightAngle;
       if (!this.animatingLight) { this.animatingLight = true; this.tickLight(); }
     };
-    this.el.addEventListener('pointermove', onMove, { passive: true });
-    this.el.addEventListener('pointerleave', onLeave, { passive: true });
+    this.el.addEventListener('pointermove', this._pointerMoveHandler, { passive: true });
+    this.el.addEventListener('pointerleave', this._pointerLeaveHandler, { passive: true });
   }
 
   private tickLight(): void {
@@ -894,6 +897,12 @@ export class LiquidGlassEngine {
       this.el.removeEventListener('pointerup', this.pressHandlers.up);
       this.el.removeEventListener('pointerleave', this.pressHandlers.leave);
       this.pressHandlers = null;
+    }
+    if (this._pointerMoveHandler) {
+      this.el.removeEventListener('pointermove', this._pointerMoveHandler);
+    }
+    if (this._pointerLeaveHandler) {
+      this.el.removeEventListener('pointerleave', this._pointerLeaveHandler);
     }
 
     const s = this.el.style;
