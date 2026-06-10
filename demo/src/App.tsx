@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { LiquidGlass } from 'quick-liquid/react';
 import type { LiquidGlassConfig } from 'quick-liquid';
 import { LiquidGroup, LiquidGesture, LiquidTabBar } from 'quick-liquid';
@@ -13,6 +13,8 @@ const GLASS_BASE: Partial<LiquidGlassConfig> = {
   specularStrength: 0.3,
   chromaticAberration: 0.05,
   thickness: 2,
+  // Bug fix #8: include borderRadius so slider shows a real default
+  borderRadius: 28,
   dynamicLighting: false,
   tintOpacity: 0.15,
   ior: 1.45,
@@ -26,17 +28,44 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [userConfig, setUserConfig] = useState<Partial<LiquidGlassConfig>>({});
-  
-  // Create a helper to merge configs.
-  // We place userConfig BEFORE localOverrides so that the sliders affect the base
-  // properties of the whole page, BUT the showcase cards keep their defining 
-  // hardcoded characteristics (like Crystal Clear always having 0 blur).
-  const getConfig = useCallback((localOverrides: Partial<LiquidGlassConfig> = {}) => ({
-    ...GLASS_BASE,
-    ...userConfig,
-    ...localOverrides,
-    dynamicLighting: false
-  }), [userConfig]);
+
+  // Bug fix #4: restructure config merging.
+  //
+  // Problem: previously localOverrides spread LAST, so showcase card hardcoded
+  // values (e.g. blur:2 for Crystal Clear, blur:40 for Frosted) always won over
+  // whatever the user set with sliders, making sliders appear broken on those cards.
+  //
+  // Fix strategy:
+  //   getConfig(fixedOverrides)  → used for showcase cards whose identity depends
+  //                                on specific values; those properties are always
+  //                                locked. The user slider CANNOT change them.
+  //   getBaseConfig()            → used for the Live Preview box and nav — fully
+  //                                responds to every slider.
+  //
+  // Spread order:  GLASS_BASE  <  userConfig  <  fixedOverrides
+  // fixedOverrides should only set the ONE or TWO properties that define the card's
+  // showcase identity (e.g. blur, chromaticAberration) and leave the rest to the
+  // user's slider values.
+  const getConfig = useCallback(
+    (fixedOverrides: Partial<LiquidGlassConfig> = {}) => ({
+      ...GLASS_BASE,
+      ...userConfig,
+      ...fixedOverrides,
+      dynamicLighting: false,
+    }),
+    [userConfig],
+  );
+
+  // Convenience: fully slider-driven config with no overrides (for Live Preview)
+  const getLiveConfig = useCallback(
+    (extraOverrides: Partial<LiquidGlassConfig> = {}) => ({
+      ...GLASS_BASE,
+      ...userConfig,
+      ...extraOverrides,
+      dynamicLighting: false,
+    }),
+    [userConfig],
+  );
 
   const handlePerf = useCallback((m: Metrics) => setMetrics(m), []);
 
@@ -45,6 +74,13 @@ function App() {
   const tabItemsRef = useRef<(HTMLElement | null)[]>([]);
   const liquidGroupRef = useRef<LiquidGroup | null>(null);
   const tabBarCtrlRef = useRef<LiquidTabBar | null>(null);
+
+  // We need a stable reference to the slider config for displaying current values.
+  // Read directly from GLASS_BASE + userConfig (no overrides)
+  const sliderValues = useMemo(
+    () => ({ ...GLASS_BASE, ...userConfig }),
+    [userConfig],
+  );
 
   useEffect(() => {
     if (!mergeContainerRef.current) return;
@@ -75,9 +111,6 @@ function App() {
     tabBarCtrlRef.current?.select(index);
   };
 
-  // We need a stable reference to the global slider config to display slider values
-  // Pass empty object so we don't accidentally override the base userConfig values
-  const sliderValues = getConfig({});
 
   return (
     <>
@@ -88,7 +121,7 @@ function App() {
       <div className="grid-pattern" />
 
       {/* Perf HUD */}
-      <LiquidGlass config={getConfig({ borderRadius: 12 })} className="perf-hud">
+      <LiquidGlass config={getLiveConfig({ borderRadius: 12 })} className="perf-hud">
         <strong>Perf</strong><br />
         Avg: {metrics ? `${metrics.avgFrameTime.toFixed(2)}ms` : '—'}<br />
         Frames: {metrics?.frameCount ?? 0}
@@ -102,7 +135,7 @@ function App() {
 
         {/* Nav bar */}
         <LiquidGlass
-          config={getConfig({ borderRadius: 50 })}
+          config={getLiveConfig({ borderRadius: 50 })}
           className="glass-nav"
           onPerformanceUpdate={handlePerf}
           liquidPress
@@ -114,7 +147,7 @@ function App() {
         {/* Hero pill */}
         <div className="hero-scene">
           <div className="hero-bg-text" aria-hidden="true">Liquid Glass</div>
-          <LiquidGlass config={getConfig({ borderRadius: 999 })} className="glass-hero-pill" animateIn={200} />
+          <LiquidGlass config={getLiveConfig({ borderRadius: 999 })} className="glass-hero-pill" animateIn={200} />
         </div>
 
         <div className="section-header">
@@ -160,25 +193,29 @@ function App() {
           </div>
         </div>
 
-        {/* Showcase cards */}
-        {/* Showcase cards */}
+        {/* Showcase cards — each locks ONLY its identity-defining properties.
+             All other properties (blur, saturation, etc.) respond to sliders. */}
         <div className="demo-grid">
-          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={0} liquidPress>
+          {/* Default: fully slider-driven */}
+          <LiquidGlass config={getLiveConfig({ borderRadius: 28 })} className="glass-panel" animateIn={0} liquidPress>
             <h2>Liquid Glass</h2>
             <p>The standard Apple-like default. Deep frosted blur, subtle edge highlights, and pure optical refraction.</p>
           </LiquidGlass>
 
+          {/* Prismatic: locks CA and refraction — slider blur/saturation still applies */}
           <LiquidGlass config={getConfig({ borderRadius: 28, chromaticAberration: 0.8, refractionStrength: 35 })} className="glass-panel" animateIn={120} liquidPress>
             <h2>Prismatic</h2>
             <p>High chromatic aberration splits the light like a prism, creating beautiful colorful fringing at the edges.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 40, refractionStrength: 5, tintOpacity: 0.35, saturation: 1.0 })} className="glass-panel" animateIn={240} liquidPress>
+          {/* Frosted: locks blur and tint — slider saturation/refraction still applies */}
+          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 40, tintOpacity: 0.35 })} className="glass-panel" animateIn={240} liquidPress>
             <h2>Frosted</h2>
             <p>Heavy blur and tint opacity with minimal optical distortion. Perfect for modal backdrops and floating panels.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 2, refractionStrength: 45, specularStrength: 0.8, edgeHighlight: 0.9, tintOpacity: 0.0 })} className="glass-panel" animateIn={360} liquidPress>
+          {/* Crystal Clear: locks blur and tint — slider CA/specular/edgeHighlight still applies */}
+          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 2, refractionStrength: 45, tintOpacity: 0.0 })} className="glass-panel" animateIn={360} liquidPress>
             <h2>Crystal Clear</h2>
             <p>Almost zero blur but massive refraction and intense specular highlights. Looks like a polished, heavy piece of crystal.</p>
           </LiquidGlass>
@@ -186,68 +223,69 @@ function App() {
 
         {/* Controls Section */}
         <div className="controls-section">
-          <LiquidGlass config={getConfig({ borderRadius: 24 })} className="controls" liquidPress>
+          <LiquidGlass config={getLiveConfig({ borderRadius: 24 })} className="controls" liquidPress>
             <h3>Live Configuration</h3>
             <div className="slider-row">
               <label>Blur</label>
-              <input type="range" min="0" max="40" step="0.5" value={sliderValues.blur}
+              <input type="range" min="0" max="60" step="0.5" value={sliderValues.blur ?? 24}
                 onChange={e => setUserConfig(c => ({ ...c, blur: +e.target.value }))} />
               <span className="value">{sliderValues.blur}px</span>
             </div>
             <div className="slider-row">
               <label>Saturation</label>
-              <input type="range" min="1.0" max="2.5" step="0.05" value={sliderValues.saturation}
+              <input type="range" min="1.0" max="2.5" step="0.05" value={sliderValues.saturation ?? 1.8}
                 onChange={e => setUserConfig(c => ({ ...c, saturation: +e.target.value }))} />
               <span className="value">{sliderValues.saturation?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Edge Highlight</label>
-              <input type="range" min="0" max="1" step="0.05" value={sliderValues.edgeHighlight}
+              <input type="range" min="0" max="1" step="0.05" value={sliderValues.edgeHighlight ?? 0.4}
                 onChange={e => setUserConfig(c => ({ ...c, edgeHighlight: +e.target.value }))} />
               <span className="value">{sliderValues.edgeHighlight?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Specular</label>
-              <input type="range" min="0" max="1" step="0.05" value={sliderValues.specularStrength}
+              <input type="range" min="0" max="1" step="0.05" value={sliderValues.specularStrength ?? 0.3}
                 onChange={e => setUserConfig(c => ({ ...c, specularStrength: +e.target.value }))} />
               <span className="value">{sliderValues.specularStrength?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Chromatic Aberr.</label>
-              <input type="range" min="0" max="1" step="0.05" value={sliderValues.chromaticAberration}
+              <input type="range" min="0" max="1" step="0.05" value={sliderValues.chromaticAberration ?? 0.05}
                 onChange={e => setUserConfig(c => ({ ...c, chromaticAberration: +e.target.value }))} />
               <span className="value">{sliderValues.chromaticAberration?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Border Radius</label>
-              <input type="range" min="4" max="64" step="1" value={sliderValues.borderRadius}
+              {/* Bug fix #8: default fallback to 28 so slider always shows a number */}
+              <input type="range" min="4" max="64" step="1" value={sliderValues.borderRadius ?? 28}
                 onChange={e => setUserConfig(c => ({ ...c, borderRadius: +e.target.value }))} />
-              <span className="value">{sliderValues.borderRadius}px</span>
+              <span className="value">{sliderValues.borderRadius ?? 28}px</span>
             </div>
             <div className="slider-row">
               <label>Shadow Depth</label>
-              <input type="range" min="0" max="16" step="1" value={sliderValues.thickness}
+              <input type="range" min="0" max="16" step="1" value={sliderValues.thickness ?? 2}
                 onChange={e => setUserConfig(c => ({ ...c, thickness: +e.target.value }))} />
-              <span className="value">{sliderValues.thickness}px</span>
+              <span className="value">{sliderValues.thickness ?? 2}px</span>
             </div>
             <div className="slider-row">
               <label>Tint Opacity</label>
-              <input type="range" min="0" max="0.20" step="0.005" value={sliderValues.tintOpacity}
+              <input type="range" min="0" max="0.40" step="0.005" value={sliderValues.tintOpacity ?? 0.15}
                 onChange={e => setUserConfig(c => ({ ...c, tintOpacity: +e.target.value }))} />
-              <span className="value">{sliderValues.tintOpacity?.toFixed(3)}</span>
+              <span className="value">{(sliderValues.tintOpacity ?? 0.15).toFixed(3)}</span>
             </div>
             <div className="slider-row">
               <label>Refraction</label>
-              <input type="range" min="0" max="50" step="1" value={sliderValues.refractionStrength}
+              <input type="range" min="0" max="60" step="1" value={sliderValues.refractionStrength ?? 18}
                 onChange={e => setUserConfig(c => ({ ...c, refractionStrength: +e.target.value }))} />
               <span className="value">{sliderValues.refractionStrength}</span>
             </div>
           </LiquidGlass>
 
-          {/* Live Preview Box */}
-          <LiquidGlass config={getConfig({})} className="live-preview-box" animateIn={0} liquidPress>
+          {/* Live Preview Box — fully slider-driven, no fixed overrides */}
+          <LiquidGlass config={getLiveConfig()} className="live-preview-box" animateIn={0} liquidPress>
             <h3>Live Preview</h3>
-            <p>This box reflects the exact values of your sliders above, allowing you to instantly preview changes without scrolling.</p>
+            <p>This box reflects the exact values of your sliders, allowing you to instantly preview changes.</p>
           </LiquidGlass>
         </div>
       </div>

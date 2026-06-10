@@ -59,46 +59,57 @@
  */
 
 export interface LiquidGlassConfig {
-  /**
-   * Backdrop blur in px. 0 = crystal clear lens, 8 = frosted.
-   * Apple uses ~4-6px for most UI elements.
-   */
+  // Material System
+  material?: 'thin' | 'regular' | 'thick' | 'ultra' | 'adaptive';
+  
+  // Optical Depth & Blur
   blur: number;
-  /** Saturation boost (1.0 = neutral, 1.5 = vivid through glass). */
+  edgeBlurModifier?: number;
   saturation: number;
-  /** Border radius in px. */
-  borderRadius: number;
-  /**
-   * Lens distortion strength. Controls how much the glass bends
-   * the background. 0 = flat glass, 40 = strong lens.
-   * Apple typical: 20-30.
-   */
-  refractionStrength: number;
-  /** Index of refraction for Snell's Law gradient. 1.0 = air, 1.5 = glass. */
-  ior: number;
-  /** Rim border + inner rim brightness (0-1). */
-  edgeHighlight: number;
-  /**
-   * Chromatic aberration at edges (0 = none, 1 = strong rainbow fringe).
-   * Apple keeps this very subtle ~0.2 on specular only.
-   */
-  chromaticAberration: number;
-  /** Shadow depth and elevation. Higher = more elevated. */
-  thickness: number;
-  /** Light angle in degrees for specular/rim direction. -90 = top. */
-  lightAngle: number;
-  /** Dynamically rotate light to follow pointer. */
-  dynamicLighting: boolean;
-  /** Quality preset. */
-  quality: 'high' | 'medium' | 'low';
-  /** Refraction mode — 'auto' detects browser support. */
-  refractionMode: 'auto' | 'svg' | 'css';
-  /** Tint color as "R, G, B" string. Default white. */
+  
+  // Tint & Vibrancy
+  adaptiveTint?: boolean;
+  tintStrength?: number;
+  environmentSampling?: 'none' | 'fast' | 'high-quality';
   tint: string;
-  /** Tint opacity. Keep 0.04-0.10 for glass, 0 for crystal clear. */
   tintOpacity: number;
-  /** Specular highlight intensity (0-1). */
+  
+  // Refraction
+  refractionStrength: number;
+  distortionStrength?: number;
+  edgeDistortion?: number;
+  ior: number;
+  
+  // Chromatic Aberration
+  chromaticAberration: number;
+  caEdgeOnly?: boolean;
+  
+  // Fresnel & Specular
   specularStrength: number;
+  fresnelPower?: number;
+  edgeHighlight: number;
+  
+  // Noise
+  noiseOpacity: number;
+  noiseScale: number;
+  
+  // Interaction & Motion
+  hoverLighting: boolean;
+  cursorTracking: boolean;
+  parallax: boolean;
+  inertia: boolean;
+  
+  // Depth & Shadows
+  thickness: number;
+  elevation: number;
+  shadowDiffusion: number;
+  
+  // Base
+  borderRadius: number;
+  lightAngle: number;
+  dynamicLighting: boolean;
+  quality: 'high' | 'medium' | 'low';
+  refractionMode: 'auto' | 'svg' | 'css';
 }
 
 export const DEFAULT_CONFIG: LiquidGlassConfig = {
@@ -117,6 +128,31 @@ export const DEFAULT_CONFIG: LiquidGlassConfig = {
   tint: '255, 255, 255',
   tintOpacity: 0.15,
   specularStrength: 0.3,
+  
+  edgeBlurModifier: 1.0,
+  adaptiveTint: false,
+  tintStrength: 1.0,
+  environmentSampling: 'fast',
+  distortionStrength: 18,
+  edgeDistortion: 0.25,
+  caEdgeOnly: true,
+  fresnelPower: 2.0,
+  noiseOpacity: 0.02,
+  noiseScale: 1.0,
+  hoverLighting: true,
+  cursorTracking: false,
+  parallax: false,
+  inertia: true,
+  elevation: 2,
+  shadowDiffusion: 4,
+};
+
+export const MATERIAL_PRESETS: Record<string, Partial<LiquidGlassConfig>> = {
+  thin: { blur: 12, thickness: 1, refractionStrength: 10, noiseOpacity: 0.015 },
+  regular: { blur: 24, thickness: 2, refractionStrength: 18, noiseOpacity: 0.02 },
+  thick: { blur: 40, thickness: 4, refractionStrength: 25, noiseOpacity: 0.03, edgeBlurModifier: 1.5 },
+  ultra: { blur: 60, thickness: 6, refractionStrength: 35, noiseOpacity: 0.04, edgeBlurModifier: 2.0 },
+  adaptive: { blur: 30, adaptiveTint: true, tintOpacity: 0.05, saturation: 1.2 },
 };
 
 let uid = 0;
@@ -124,7 +160,7 @@ let uid = 0;
 export class LiquidGlassEngine {
   private el: HTMLElement;
   private cfg: LiquidGlassConfig;
-  readonly id: string;
+  public id: string;
 
   // Layer refs
   private lensLayer: HTMLDivElement | null = null;
@@ -132,17 +168,32 @@ export class LiquidGlassEngine {
   private curvatureLayer: HTMLDivElement | null = null;
   private specularLayer: HTMLDivElement | null = null;
   private rimLayer: HTMLDivElement | null = null;
+  private noiseLayer: HTMLDivElement | null = null;
 
   // SVG filter (lens displacement)
   private svgEl: SVGSVGElement | null = null;
-
 
   private resizeObs: ResizeObserver | null = null;
   private destroyed = false;
   private rafId: number | null = null;
   private animatingLight = false;
+  
+  // Spring/Motion State
   private currentAngle: number;
   private targetAngle: number;
+  private angleVelocity = 0;
+  
+  private currentParallaxX = 0;
+  private targetParallaxX = 0;
+  private parallaxXVelocity = 0;
+  
+  private currentParallaxY = 0;
+  private targetParallaxY = 0;
+  private parallaxYVelocity = 0;
+  
+  private currentHoverGlow = 0;
+  private targetHoverGlow = 0;
+  private hoverGlowVelocity = 0;
 
   private _frameCount = 0;
   private _totalTime = 0;
@@ -153,7 +204,20 @@ export class LiquidGlassEngine {
 
   constructor(element: HTMLElement, config: Partial<LiquidGlassConfig> = {}) {
     this.el = element;
-    this.cfg = { ...DEFAULT_CONFIG, ...config };
+    
+    // Merge base config
+    let merged = { ...DEFAULT_CONFIG, ...config };
+    
+    // Apply material presets if defined
+    if (merged.material && MATERIAL_PRESETS[merged.material]) {
+      merged = { ...merged, ...MATERIAL_PRESETS[merged.material], ...config };
+    }
+    
+    // Sync aliases
+    if (merged.distortionStrength !== undefined) merged.refractionStrength = merged.distortionStrength;
+    if (merged.dynamicLighting) merged.cursorTracking = true;
+    
+    this.cfg = merged;
     this.id = `ql${++uid}`;
     this.currentAngle = this.cfg.lightAngle;
     this.targetAngle = this.cfg.lightAngle;
@@ -179,16 +243,19 @@ export class LiquidGlassEngine {
     });
     this.resizeObs.observe(el);
 
-    if (cfg.dynamicLighting) this.setupPointer();
+    if (cfg.cursorTracking || cfg.hoverLighting || cfg.parallax) {
+      this.setupPointer();
+    }
   }
 
   private buildAllLayers(): void {
-    this.buildLensFilter();       // SVG displacement map (must exist before lens layer)
+    this.buildLensFilter();       // SVG displacement map
     this.createLensLayer();       // Layer 0: the actual glass lens + blur
     this.createTintLayer();       // Layer 1: subtle white tint
     this.createCurvatureLayer();  // Layer 2: inner convex-lens brightness gradient
     this.createSpecularLayer();   // Layer 3: Fresnel specular crescent
     this.createRimLayer();        // Layer 4: gradient border + inner rim line
+    this.createNoiseLayer();      // Layer 5: surface noise
     this.applyDepth();            // Outer shadow
   }
 
@@ -220,19 +287,50 @@ export class LiquidGlassEngine {
 
     const hasSVG = this.svgEl && this.shouldUseSVG();
     const svgPart = hasSVG ? `url(#${this.id}) ` : '';
-    const blurPart = cfg.blur > 0 ? `blur(${cfg.blur}px) ` : '';
     const satPart = cfg.saturation !== 1 ? `saturate(${cfg.saturation})` : '';
-    const bdf = `${svgPart}${blurPart}${satPart}`.trim() || 'none';
 
+    // Bug fix #11: overflow:hidden needed so masked edge-blur children don't paint outside bounds
     Object.assign(layer.style, {
       position: 'absolute',
       inset: '0',
       zIndex: '0',
       borderRadius: 'inherit',
       pointerEvents: 'none',
-      backdropFilter: bdf,
-      WebkitBackdropFilter: bdf,
+      overflow: 'hidden',
     });
+
+    if (cfg.edgeBlurModifier && cfg.edgeBlurModifier > 1.0) {
+      // Dual-layer masked blur for varying blur density
+      const baseBlur = `blur(${cfg.blur}px) `;
+      const edgeBlurAmount = Math.round(cfg.blur * cfg.edgeBlurModifier);
+      const edgeBlur = `blur(${edgeBlurAmount}px) `;
+
+      const baseFilter = `${svgPart}${baseBlur}${satPart}`.trim() || 'none';
+      const edgeFilter = `${svgPart}${edgeBlur}${satPart}`.trim() || 'none';
+
+      const baseEl = document.createElement('div');
+      Object.assign(baseEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
+      baseEl.style.backdropFilter = baseFilter;
+      (baseEl.style as any).WebkitBackdropFilter = baseFilter;
+
+      const edgeEl = document.createElement('div');
+      Object.assign(edgeEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
+      edgeEl.style.backdropFilter = edgeFilter;
+      (edgeEl.style as any).WebkitBackdropFilter = edgeFilter;
+
+      // Mask edge layer so it only appears at edges
+      const mask = `radial-gradient(ellipse at center, transparent 40%, black 100%)`;
+      edgeEl.style.maskImage = mask;
+      (edgeEl.style as any).WebkitMaskImage = mask;
+
+      layer.appendChild(baseEl);
+      layer.appendChild(edgeEl);
+    } else {
+      const blurPart = cfg.blur > 0 ? `blur(${cfg.blur}px) ` : '';
+      const bdf = `${svgPart}${blurPart}${satPart}`.trim() || 'none';
+      layer.style.backdropFilter = bdf;
+      (layer.style as any).WebkitBackdropFilter = bdf;
+    }
 
     this.lensLayer = layer;
     this.el.insertBefore(layer, this.el.firstChild);
@@ -240,9 +338,6 @@ export class LiquidGlassEngine {
 
   // ═══════════════════════════════════════════════════════════
   //  LAYER 1 — TINT
-  //  Real glass absorbs a tiny bit of light and has a slight
-  //  warm/cool cast depending on the glass type.
-  //  Keep very low (0.06-0.12). This is NOT a background.
   // ═══════════════════════════════════════════════════════════
   private createTintLayer(): void {
     if (this.tintLayer) this.tintLayer.remove();
@@ -251,13 +346,18 @@ export class LiquidGlassEngine {
 
     const layer = document.createElement('div');
     layer.className = 'ql-tint';
+    
+    // Adaptive vibrancy blending
+    const mixBlendMode = cfg.adaptiveTint ? 'overlay' : 'normal';
+
     Object.assign(layer.style, {
       position: 'absolute',
       inset: '0',
       zIndex: '1',
       borderRadius: 'inherit',
       pointerEvents: 'none',
-      backgroundColor: `rgba(${cfg.tint}, ${cfg.tintOpacity})`,
+      backgroundColor: `rgba(${cfg.tint}, ${cfg.tintOpacity * (cfg.tintStrength || 1.0)})`,
+      mixBlendMode: mixBlendMode,
     });
     this.tintLayer = layer;
     const ref = this.lensLayer;
@@ -265,20 +365,15 @@ export class LiquidGlassEngine {
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  LAYER 2 — CURVATURE GRADIENT
-  //  A convex glass lens is thicker in the center and thinner
-  //  at edges. Light is concentrated toward the center top.
-  //  This inner gradient makes the glass look 3D and curved.
-  //
-  //  Real Apple glass has:
-  //    - A subtle warm/bright top-center area
-  //    - A slight darkening toward the bottom (shadow side)
-  //    - The entire center is transparent / clear
+  //  LAYER 2 — CURVATURE GRADIENT & INNER SHADOW
   // ═══════════════════════════════════════════════════════════
   private createCurvatureLayer(): void {
     if (this.curvatureLayer) this.curvatureLayer.remove();
     const layer = document.createElement('div');
     layer.className = 'ql-curvature';
+    
+    const hoverOpacity = this.cfg.hoverLighting ? 0.08 : 0.06;
+
     Object.assign(layer.style, {
       position: 'absolute',
       inset: '0',
@@ -286,13 +381,14 @@ export class LiquidGlassEngine {
       borderRadius: 'inherit',
       pointerEvents: 'none',
       background: [
-        // Top-center convex highlight — wide and soft like a curved lens
         `radial-gradient(ellipse 100% 100% at 50% -20%,
-          rgba(255,255,255,0.06) 0%,
+          rgba(255,255,255,${hoverOpacity}) 0%,
           rgba(255,255,255,0.02) 50%,
           transparent 100%
         )`
       ].join(', '),
+      boxShadow: `inset 0 0 ${Math.max(10, this.cfg.thickness * 10)}px rgba(0,0,0,0.02)`,
+      transition: 'background 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
     });
     this.curvatureLayer = layer;
     const ref = this.tintLayer || this.lensLayer;
@@ -460,13 +556,47 @@ export class LiquidGlassEngine {
   //    1. Hard/focused: tight, dark — from direct light source
   //    2. Soft/ambient: wide, light — from ambient room light
   // ═══════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════
+  //  LAYER 5 — NOISE (Film Grain / Realism)
+  // ═══════════════════════════════════════════════════════════
+  private createNoiseLayer(): void {
+    if (this.noiseLayer) this.noiseLayer.remove();
+    const cfg = this.cfg;
+    if (cfg.noiseOpacity <= 0) return;
+
+    const layer = document.createElement('div');
+    layer.className = 'ql-noise';
+    
+    // A minimal base64 SVG noise pattern
+    const noiseSvg = `data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E`;
+
+    Object.assign(layer.style, {
+      position: 'absolute',
+      inset: '0',
+      zIndex: '5',
+      borderRadius: 'inherit',
+      pointerEvents: 'none',
+      backgroundImage: `url("${noiseSvg}")`,
+      opacity: cfg.noiseOpacity.toString(),
+      mixBlendMode: 'overlay',
+      backgroundSize: `${100 * cfg.noiseScale}px ${100 * cfg.noiseScale}px`,
+    });
+    this.noiseLayer = layer;
+    const ref = this.rimLayer || this.specularLayer || this.curvatureLayer || this.tintLayer || this.lensLayer;
+    this.el.insertBefore(layer, ref!.nextSibling);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  DEPTH SHADOWS
+  // ═══════════════════════════════════════════════════════════
   private applyDepth(): void {
     const t = this.cfg.thickness;
+    // Bug fix #3: use thickness (the user-facing depth control) as the sole shadow driver.
+    // elevation/shadowDiffusion are derived from it so the slider is consistent.
     if (t < 1) { this.el.style.boxShadow = 'none'; return; }
     this.el.style.boxShadow = [
-      // Soft, wide ambient spatial shadow (Apple style)
       `0 ${Math.round(t * 4)}px ${Math.round(t * 16)}px rgba(0,0,0,0.12)`,
-      `0 ${Math.round(t)}px ${Math.round(t * 4)}px rgba(0,0,0,0.04)`
+      `0 ${Math.round(t)}px ${Math.round(t * 4)}px rgba(0,0,0,0.04)`,
     ].join(', ');
   }
 
@@ -730,45 +860,157 @@ export class LiquidGlassEngine {
     return outside + inside;
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  POINTER TRACKING
-  // ═══════════════════════════════════════════════════════════
   private _pointerMoveHandler?: (e: PointerEvent) => void;
   private _pointerLeaveHandler?: () => void;
+  private _pointerEnterHandler?: () => void;
 
+  // Bug fix #6 & #7: Do NOT capture cfg by closure — always read this.cfg at call time.
+  // This ensures interactions work correctly even after updateConfig() replaces this.cfg.
   private setupPointer(): void {
+    // Remove existing listeners first (called again after rebuild)
+    this.teardownPointer();
+
+    this._pointerEnterHandler = () => {
+      if (this.cfg.hoverLighting) {
+        this.targetHoverGlow = 1;
+        if (!this.animatingLight) { this.animatingLight = true; this.tickLight(); }
+      }
+    };
+
     this._pointerMoveHandler = (e: PointerEvent) => {
       const rect = this.el.getBoundingClientRect();
       const px = (e.clientX - rect.left) / rect.width;
       const py = (e.clientY - rect.top) / rect.height;
-      this.targetAngle = Math.atan2(py - 0.5, px - 0.5) * (180 / Math.PI) - 90;
+
+      if (this.cfg.cursorTracking) {
+        this.targetAngle = Math.atan2(py - 0.5, px - 0.5) * (180 / Math.PI) - 90;
+      }
+
+      if (this.cfg.parallax) {
+        this.targetParallaxX = (px - 0.5) * 2;
+        this.targetParallaxY = (py - 0.5) * 2;
+      }
+
       if (!this.animatingLight) { this.animatingLight = true; this.tickLight(); }
     };
+
     this._pointerLeaveHandler = () => {
       this.targetAngle = this.cfg.lightAngle;
+      this.targetParallaxX = 0;
+      this.targetParallaxY = 0;
+      this.targetHoverGlow = 0;
       if (!this.animatingLight) { this.animatingLight = true; this.tickLight(); }
     };
+
+    this.el.addEventListener('mouseenter', this._pointerEnterHandler, { passive: true });
     this.el.addEventListener('pointermove', this._pointerMoveHandler, { passive: true });
     this.el.addEventListener('pointerleave', this._pointerLeaveHandler, { passive: true });
+  }
+
+  private teardownPointer(): void {
+    if (this._pointerEnterHandler) {
+      this.el.removeEventListener('mouseenter', this._pointerEnterHandler);
+      this._pointerEnterHandler = undefined;
+    }
+    if (this._pointerMoveHandler) {
+      this.el.removeEventListener('pointermove', this._pointerMoveHandler);
+      this._pointerMoveHandler = undefined;
+    }
+    if (this._pointerLeaveHandler) {
+      this.el.removeEventListener('pointerleave', this._pointerLeaveHandler);
+      this._pointerLeaveHandler = undefined;
+    }
   }
 
   private tickLight(): void {
     if (this.destroyed) return;
     const t0 = performance.now();
+    // Bug fix #6: always read this.cfg — never a stale local ref
+    const cfg = this.cfg;
 
     let diff = this.targetAngle - this.currentAngle;
     diff = ((diff + 540) % 360) - 180;
 
-    if (Math.abs(diff) < 0.4) {
-      this.currentAngle = this.targetAngle;
+    let isMoving = false;
+
+    // 1. Angle (Lighting)
+    if (Math.abs(diff) > 0.1 || Math.abs(this.angleVelocity) > 0.01) {
+      isMoving = true;
+      if (cfg.inertia) {
+        const k = 0.15;
+        const d = 0.6;
+        this.angleVelocity = (this.angleVelocity + diff * k) * d;
+        this.currentAngle += this.angleVelocity;
+      } else {
+        this.currentAngle += diff * 0.12;
+      }
       this.updateRim();
       this.updateSpecular();
+    } else {
+      // Bug fix #5: snap to target so diff recalc next frame is truly 0
+      this.currentAngle = this.targetAngle;
+      this.angleVelocity = 0;
+    }
+
+    // 2. Parallax
+    if (cfg.parallax) {
+      const pDiffX = this.targetParallaxX - this.currentParallaxX;
+      const pDiffY = this.targetParallaxY - this.currentParallaxY;
+
+      if (Math.abs(pDiffX) > 0.001 || Math.abs(pDiffY) > 0.001 ||
+          Math.abs(this.parallaxXVelocity) > 0.001 || Math.abs(this.parallaxYVelocity) > 0.001) {
+        isMoving = true;
+        if (cfg.inertia) {
+          const k = 0.1;
+          const d = 0.7;
+          this.parallaxXVelocity = (this.parallaxXVelocity + pDiffX * k) * d;
+          this.parallaxYVelocity = (this.parallaxYVelocity + pDiffY * k) * d;
+          this.currentParallaxX += this.parallaxXVelocity;
+          this.currentParallaxY += this.parallaxYVelocity;
+        } else {
+          this.currentParallaxX += pDiffX * 0.2;
+          this.currentParallaxY += pDiffY * 0.2;
+        }
+        this.el.style.transform = `perspective(1000px) rotateY(${this.currentParallaxX * 5}deg) rotateX(${-this.currentParallaxY * 5}deg)`;
+      } else {
+        this.currentParallaxX = this.targetParallaxX;
+        this.currentParallaxY = this.targetParallaxY;
+        this.parallaxXVelocity = 0;
+        this.parallaxYVelocity = 0;
+      }
+    }
+
+    // 3. Hover Glow
+    if (cfg.hoverLighting) {
+      const gDiff = this.targetHoverGlow - this.currentHoverGlow;
+      if (Math.abs(gDiff) > 0.005 || Math.abs(this.hoverGlowVelocity) > 0.005) {
+        isMoving = true;
+        this.hoverGlowVelocity = (this.hoverGlowVelocity + gDiff * 0.05) * 0.75;
+        this.currentHoverGlow += this.hoverGlowVelocity;
+
+        if (this.curvatureLayer) {
+          const baseOp = 0.06;
+          const activeOp = 0.15;
+          const op = baseOp + (activeOp - baseOp) * Math.max(0, Math.min(1, this.currentHoverGlow));
+          this.curvatureLayer.style.background = [
+            `radial-gradient(ellipse 100% 100% at 50% -20%,`,
+            `  rgba(255,255,255,${op.toFixed(3)}) 0%,`,
+            `  rgba(255,255,255,0.02) 50%,`,
+            `  transparent 100%`,
+            `)`,
+          ].join(' ');
+        }
+      } else {
+        this.currentHoverGlow = this.targetHoverGlow;
+        this.hoverGlowVelocity = 0;
+      }
+    }
+
+    // Bug fix #5: check isMoving AFTER all updates so we use the freshly-computed state
+    if (!isMoving) {
       this.animatingLight = false;
       return;
     }
-    this.currentAngle += diff * 0.12;
-    this.updateRim();
-    this.updateSpecular();
 
     const dt = performance.now() - t0;
     this._lastTime = dt;
@@ -865,13 +1107,16 @@ export class LiquidGlassEngine {
 
   updateConfig(config: Partial<LiquidGlassConfig>): void {
     this.cfg = { ...this.cfg, ...config };
+    // Assign a new unique ID so browsers don't aggressively cache the old SVG filter
+    this.id = `ql${++uid}`;
     this.rebuildAll();
   }
 
   private rebuildAll(): void {
-    [this.lensLayer, this.tintLayer, this.curvatureLayer, this.specularLayer, this.rimLayer]
+    // Bug fix #1 & #7: also remove noiseLayer and re-run setupPointer after rebuild
+    [this.lensLayer, this.tintLayer, this.curvatureLayer, this.specularLayer, this.rimLayer, this.noiseLayer]
       .forEach(l => l?.remove());
-    this.lensLayer = this.tintLayer = this.curvatureLayer = this.specularLayer = this.rimLayer = null;
+    this.lensLayer = this.tintLayer = this.curvatureLayer = this.specularLayer = this.rimLayer = this.noiseLayer = null;
     if (this.svgEl) { this.svgEl.remove(); this.svgEl = null; }
 
     this.el.style.borderRadius = `${this.cfg.borderRadius}px`;
@@ -879,6 +1124,14 @@ export class LiquidGlassEngine {
     (this.el.style as any).WebkitFilter = '';
 
     this.buildAllLayers();
+
+    // Re-attach pointer listeners after rebuild so new cfg flags take effect
+    if (this.cfg.cursorTracking || this.cfg.hoverLighting || this.cfg.parallax) {
+      this.setupPointer();
+    } else {
+      // Ensure we don't leave orphaned listeners from a previous config
+      this.teardownPointer();
+    }
   }
 
   destroy(): void {
@@ -891,6 +1144,8 @@ export class LiquidGlassEngine {
     this.curvatureLayer?.remove();
     this.specularLayer?.remove();
     this.rimLayer?.remove();
+    // Bug fix #2: also remove noiseLayer on destroy
+    this.noiseLayer?.remove();
 
     if (this.pressHandlers) {
       this.el.removeEventListener('pointerdown', this.pressHandlers.down);
@@ -898,12 +1153,8 @@ export class LiquidGlassEngine {
       this.el.removeEventListener('pointerleave', this.pressHandlers.leave);
       this.pressHandlers = null;
     }
-    if (this._pointerMoveHandler) {
-      this.el.removeEventListener('pointermove', this._pointerMoveHandler);
-    }
-    if (this._pointerLeaveHandler) {
-      this.el.removeEventListener('pointerleave', this._pointerLeaveHandler);
-    }
+    // Bug fix #2: use teardownPointer for clean removal
+    this.teardownPointer();
 
     const s = this.el.style;
     s.filter = s.backdropFilter = s.boxShadow = s.backgroundColor = '';
