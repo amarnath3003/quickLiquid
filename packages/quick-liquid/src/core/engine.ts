@@ -644,12 +644,43 @@ export class LiquidGlassEngine {
   }
 
   private detectSVGSupport(): boolean {
-    if (typeof CSS === 'undefined') return false;
-    // Test if backdrop-filter accepts url() references
-    if (CSS.supports('backdrop-filter', 'url(#x)')) return true;
-    if (CSS.supports('-webkit-backdrop-filter', 'url(#x)')) return true;
-    // Fallback: check filter support (still useful for iOS Safari workaround)
-    return CSS.supports('filter', 'url(#x)');
+    if (typeof document === 'undefined') return false;
+
+    // CSS.supports('backdrop-filter', 'url(#x)') is unreliable:
+    // Chrome/Edge report false even though they fully support it at runtime.
+    // Use a live DOM probe: inject a test filter + a div, then read computedStyle.
+    try {
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
+      svg.setAttribute('width', '0');
+      svg.setAttribute('height', '0');
+      svg.style.cssText = 'position:absolute;overflow:hidden;pointer-events:none;';
+      const defs = document.createElementNS(svgNS, 'defs');
+      const filter = document.createElementNS(svgNS, 'filter') as SVGFilterElement;
+      filter.id = '__ql_probe__';
+      defs.appendChild(filter);
+      svg.appendChild(defs);
+      document.body.appendChild(svg);
+
+      const probe = document.createElement('div');
+      probe.style.cssText = [
+        'position:fixed;top:0;left:0;width:1px;height:1px;',
+        'backdrop-filter:url(#__ql_probe__);',
+        '-webkit-backdrop-filter:url(#__ql_probe__);',
+        'pointer-events:none;',
+      ].join('');
+      document.body.appendChild(probe);
+
+      const cs = getComputedStyle(probe);
+      const bf = cs.backdropFilter || (cs as any).webkitBackdropFilter || '';
+      const ok = bf.includes('url(');
+
+      probe.remove();
+      svg.remove();
+      return ok;
+    } catch {
+      return false;
+    }
   }
 
   private buildLensFilter(): void {
