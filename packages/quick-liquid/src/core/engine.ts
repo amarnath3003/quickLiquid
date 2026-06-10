@@ -688,13 +688,22 @@ export class LiquidGlassEngine {
     // feImage must also use exact integer pixel dimensions.
     let filterContent: string;
 
-    if (ca > 0.05 && this.cfg.quality === 'high') {
+    if (ca > 0 && this.cfg.quality === 'high') {
       // CHROMATIC ABERRATION MODE
-      // Three displacement maps with slightly different scales (R bends most, B least)
-      // This splits the RGB channels like a prism — color fringing at edges
+      //
+      // Each RGB channel gets displaced by a slightly different amount:
+      //   R bends most (glass disperses red least — appears shifted outward more)
+      //   G is the reference (middle wavelength)
+      //   B bends least (shortest wavelength bends most in glass — appears shifted inward)
+      //
+      // After displacing each channel separately, we isolate it with feComponentTransfer
+      // (zero the other two channels) then screen-blend the three together.
+      // feComponentTransfer is used over feColorMatrix because CM channel isolation
+      // darkens the alpha implicitly on some browsers, whereas feFuncX type=discrete
+      // zeroes only the colour channels without touching alpha.
       const scaleR = scale * (1 + ca * 0.3);
       const scaleG = scale;
-      const scaleB = scale * (1 - ca * 0.2);
+      const scaleB = scale * Math.max(0.1, 1 - ca * 0.2);
 
       const mapURIR = this.generateLensMap(qw, qh, w, h, 'R');
       const mapURIG = this.generateLensMap(qw, qh, w, h, 'G');
@@ -704,12 +713,30 @@ export class LiquidGlassEngine {
         <feImage href="${mapURIR}" result="mapR" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
         <feImage href="${mapURIG}" result="mapG" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
         <feImage href="${mapURIB}" result="mapB" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
+
         <feDisplacementMap in="SourceGraphic" in2="mapR" scale="${scaleR.toFixed(1)}" xChannelSelector="R" yChannelSelector="G" result="dispR"/>
         <feDisplacementMap in="SourceGraphic" in2="mapG" scale="${scaleG.toFixed(1)}" xChannelSelector="R" yChannelSelector="G" result="dispG"/>
         <feDisplacementMap in="SourceGraphic" in2="mapB" scale="${scaleB.toFixed(1)}" xChannelSelector="R" yChannelSelector="G" result="dispB"/>
-        <feColorMatrix in="dispR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="onlyR"/>
-        <feColorMatrix in="dispG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="onlyG"/>
-        <feColorMatrix in="dispB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="onlyB"/>
+
+        <feComponentTransfer in="dispR" result="onlyR">
+          <feFuncR type="identity"/>
+          <feFuncG type="discrete" tableValues="0"/>
+          <feFuncB type="discrete" tableValues="0"/>
+          <feFuncA type="identity"/>
+        </feComponentTransfer>
+        <feComponentTransfer in="dispG" result="onlyG">
+          <feFuncR type="discrete" tableValues="0"/>
+          <feFuncG type="identity"/>
+          <feFuncB type="discrete" tableValues="0"/>
+          <feFuncA type="identity"/>
+        </feComponentTransfer>
+        <feComponentTransfer in="dispB" result="onlyB">
+          <feFuncR type="discrete" tableValues="0"/>
+          <feFuncG type="discrete" tableValues="0"/>
+          <feFuncB type="identity"/>
+          <feFuncA type="identity"/>
+        </feComponentTransfer>
+
         <feBlend in="onlyR" in2="onlyG" mode="screen" result="RG"/>
         <feBlend in="RG" in2="onlyB" mode="screen"/>
       `;
