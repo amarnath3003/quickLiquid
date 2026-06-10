@@ -9,9 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "puppeteer": "^25.1.0",
+    "quick-liquid": "*",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "quick-liquid": "*"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

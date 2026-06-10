@@ -199,6 +199,7 @@ export class LiquidGlassEngine {
   private _totalTime = 0;
   private _lastTime = 0;
 
+  private currentBlobUrl: string | null = null;
   private static _svgOk: boolean | null = null;
   private pressHandlers: { down: () => void; up: () => void; leave: () => void } | null = null;
 
@@ -219,6 +220,7 @@ export class LiquidGlassEngine {
     
     this.cfg = merged;
     this.id = `ql${++uid}`;
+    this.currentBlobUrl = null;
     this.currentAngle = this.cfg.lightAngle;
     this.targetAngle = this.cfg.lightAngle;
     this.mount();
@@ -236,7 +238,7 @@ export class LiquidGlassEngine {
     el.style.overflow = 'hidden';
     el.style.isolation = 'isolate';
 
-    this.buildAllLayers();
+    this.buildAllLayers().catch(console.error);
 
     this.resizeObs = new ResizeObserver(() => {
       if (cfg.refractionStrength > 0) this.rebuildLensFilter();
@@ -248,8 +250,8 @@ export class LiquidGlassEngine {
     }
   }
 
-  private buildAllLayers(): void {
-    this.buildLensFilter();       // SVG displacement map
+  private async buildAllLayers(): Promise<void> {
+    await this.buildLensFilter();       // SVG displacement map
     this.createLensLayer();       // Layer 0: the actual glass lens + blur
     this.createTintLayer();       // Layer 1: subtle white tint
     this.createCurvatureLayer();  // Layer 2: inner convex-lens brightness gradient
@@ -281,15 +283,9 @@ export class LiquidGlassEngine {
   // ═══════════════════════════════════════════════════════════
   private createLensLayer(): void {
     if (this.lensLayer) this.lensLayer.remove();
-    const cfg = this.cfg;
     const layer = document.createElement('div');
     layer.className = 'ql-lens';
 
-    const hasSVG = this.svgEl && this.shouldUseSVG();
-    const svgPart = hasSVG ? `url(#${this.id}) ` : '';
-    const satPart = cfg.saturation !== 1 ? `saturate(${cfg.saturation})` : '';
-
-    // Bug fix #11: overflow:hidden needed so masked edge-blur children don't paint outside bounds
     Object.assign(layer.style, {
       position: 'absolute',
       inset: '0',
@@ -298,6 +294,18 @@ export class LiquidGlassEngine {
       pointerEvents: 'none',
       overflow: 'hidden',
     });
+
+    this.lensLayer = layer;
+    this.updateLensStyle();
+    this.el.insertBefore(layer, this.el.firstChild);
+  }
+
+  private updateLensStyle(): void {
+    if (!this.lensLayer) return;
+    const cfg = this.cfg;
+    const hasSVG = this.svgEl && this.shouldUseSVG();
+    const svgPart = hasSVG ? `url(#${this.id}) ` : '';
+    const satPart = cfg.saturation !== 1 ? `saturate(${cfg.saturation})` : '';
 
     if (cfg.edgeBlurModifier && cfg.edgeBlurModifier > 1.0) {
       // Dual-layer masked blur for varying blur density
@@ -308,32 +316,35 @@ export class LiquidGlassEngine {
       const baseFilter = `${svgPart}${baseBlur}${satPart}`.trim() || 'none';
       const edgeFilter = `${svgPart}${edgeBlur}${satPart}`.trim() || 'none';
 
-      const baseEl = document.createElement('div');
-      Object.assign(baseEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
+      let baseEl = this.lensLayer.children[0] as HTMLElement;
+      let edgeEl = this.lensLayer.children[1] as HTMLElement;
+      
+      if (!baseEl || !edgeEl) {
+        this.lensLayer.innerHTML = '';
+        baseEl = document.createElement('div');
+        Object.assign(baseEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
+        edgeEl = document.createElement('div');
+        Object.assign(edgeEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
+        const mask = `radial-gradient(ellipse at center, transparent 40%, black 100%)`;
+        edgeEl.style.maskImage = mask;
+        (edgeEl.style as any).WebkitMaskImage = mask;
+        this.lensLayer.appendChild(baseEl);
+        this.lensLayer.appendChild(edgeEl);
+      }
+
       baseEl.style.backdropFilter = baseFilter;
       (baseEl.style as any).WebkitBackdropFilter = baseFilter;
-
-      const edgeEl = document.createElement('div');
-      Object.assign(edgeEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
       edgeEl.style.backdropFilter = edgeFilter;
       (edgeEl.style as any).WebkitBackdropFilter = edgeFilter;
-
-      // Mask edge layer so it only appears at edges
-      const mask = `radial-gradient(ellipse at center, transparent 40%, black 100%)`;
-      edgeEl.style.maskImage = mask;
-      (edgeEl.style as any).WebkitMaskImage = mask;
-
-      layer.appendChild(baseEl);
-      layer.appendChild(edgeEl);
+      console.log(`[${this.id}] Updated dual lens filters:`, { baseFilter, edgeFilter });
     } else {
+      this.lensLayer.innerHTML = '';
       const blurPart = cfg.blur > 0 ? `blur(${cfg.blur}px) ` : '';
       const bdf = `${svgPart}${blurPart}${satPart}`.trim() || 'none';
-      layer.style.backdropFilter = bdf;
-      (layer.style as any).WebkitBackdropFilter = bdf;
+      this.lensLayer.style.backdropFilter = bdf;
+      (this.lensLayer.style as any).WebkitBackdropFilter = bdf;
+      console.log(`[${this.id}] Updated flat lens filter:`, bdf);
     }
-
-    this.lensLayer = layer;
-    this.el.insertBefore(layer, this.el.firstChild);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -347,21 +358,19 @@ export class LiquidGlassEngine {
     const layer = document.createElement('div');
     layer.className = 'ql-tint';
     
-    // Adaptive vibrancy blending
-    const mixBlendMode = cfg.adaptiveTint ? 'overlay' : 'normal';
+    this.tintLayer = layer;
+    this.updateTintStyle();
+    this.el.insertBefore(layer, this._contentEl());
+  }
 
-    Object.assign(layer.style, {
-      position: 'absolute',
-      inset: '0',
-      zIndex: '1',
-      borderRadius: 'inherit',
-      pointerEvents: 'none',
+  private updateTintStyle(): void {
+    if (!this.tintLayer) return;
+    const cfg = this.cfg;
+    const mixBlendMode = cfg.adaptiveTint ? 'overlay' : 'normal';
+    Object.assign(this.tintLayer.style, {
       backgroundColor: `rgba(${cfg.tint}, ${cfg.tintOpacity * (cfg.tintStrength || 1.0)})`,
       mixBlendMode: mixBlendMode,
     });
-    this.tintLayer = layer;
-    const ref = this.lensLayer;
-    this.el.insertBefore(layer, ref!.nextSibling);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -371,8 +380,6 @@ export class LiquidGlassEngine {
     if (this.curvatureLayer) this.curvatureLayer.remove();
     const layer = document.createElement('div');
     layer.className = 'ql-curvature';
-    
-    const hoverOpacity = this.cfg.hoverLighting ? 0.08 : 0.06;
 
     Object.assign(layer.style, {
       position: 'absolute',
@@ -380,6 +387,17 @@ export class LiquidGlassEngine {
       zIndex: '2',
       borderRadius: 'inherit',
       pointerEvents: 'none',
+      transition: 'background 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
+    });
+    this.curvatureLayer = layer;
+    this.updateCurvature();
+    this.el.insertBefore(layer, this._contentEl());
+  }
+
+  private updateCurvature(): void {
+    if (!this.curvatureLayer) return;
+    const hoverOpacity = this.cfg.hoverLighting ? 0.08 : 0.06;
+    Object.assign(this.curvatureLayer.style, {
       background: [
         `radial-gradient(ellipse 100% 100% at 50% -20%,
           rgba(255,255,255,${hoverOpacity}) 0%,
@@ -388,11 +406,7 @@ export class LiquidGlassEngine {
         )`
       ].join(', '),
       boxShadow: `inset 0 0 ${Math.max(10, this.cfg.thickness * 10)}px rgba(0,0,0,0.02)`,
-      transition: 'background 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
     });
-    this.curvatureLayer = layer;
-    const ref = this.tintLayer || this.lensLayer;
-    this.el.insertBefore(layer, ref!.nextSibling);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -422,8 +436,7 @@ export class LiquidGlassEngine {
       pointerEvents: 'none',
     });
     this.updateSpecular();
-    const ref = this.curvatureLayer || this.tintLayer || this.lensLayer;
-    this.el.insertBefore(layer, ref!.nextSibling);
+    this.el.insertBefore(layer, this._contentEl());
   }
 
   private updateSpecular(): void {
@@ -492,8 +505,7 @@ export class LiquidGlassEngine {
     layer.className = 'ql-rim';
     this.rimLayer = layer;
     this.updateRim();
-    const ref = this.specularLayer || this.curvatureLayer || this.tintLayer || this.lensLayer;
-    this.el.insertBefore(layer, ref!.nextSibling);
+    this.el.insertBefore(layer, this._contentEl());
   }
 
   private updateRim(): void {
@@ -566,24 +578,37 @@ export class LiquidGlassEngine {
 
     const layer = document.createElement('div');
     layer.className = 'ql-noise';
-    
-    // A minimal base64 SVG noise pattern
-    const noiseSvg = `data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E`;
-
     Object.assign(layer.style, {
       position: 'absolute',
       inset: '0',
       zIndex: '5',
       borderRadius: 'inherit',
       pointerEvents: 'none',
-      backgroundImage: `url("${noiseSvg}")`,
-      opacity: cfg.noiseOpacity.toString(),
       mixBlendMode: 'overlay',
-      backgroundSize: `${100 * cfg.noiseScale}px ${100 * cfg.noiseScale}px`,
     });
     this.noiseLayer = layer;
-    const ref = this.rimLayer || this.specularLayer || this.curvatureLayer || this.tintLayer || this.lensLayer;
-    this.el.insertBefore(layer, ref!.nextSibling);
+    this.updateNoise();
+    this.el.insertBefore(layer, this._contentEl());
+  }
+
+  private updateNoise(): void {
+    if (!this.noiseLayer) return;
+    const cfg = this.cfg;
+    const noiseSvg = `data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E`;
+    
+    Object.assign(this.noiseLayer.style, {
+      backgroundImage: `url("${noiseSvg}")`,
+      opacity: cfg.noiseOpacity.toString(),
+      backgroundSize: `${100 * cfg.noiseScale}px ${100 * cfg.noiseScale}px`,
+    });
+  }
+
+  /**
+   * Returns the ql-content child div inserted by the React wrapper,
+   * or null if not found. All glass layers must be inserted BEFORE this.
+   */
+  private _contentEl(): Element | null {
+    return this.el.querySelector(':scope > .ql-content');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -683,21 +708,29 @@ export class LiquidGlassEngine {
     }
   }
 
-  private buildLensFilter(): void {
+  private async buildLensFilter(): Promise<void> {
     if (!this.shouldUseSVG() || this.cfg.refractionStrength <= 0) return;
-    this.rebuildLensFilter();
+    await this.rebuildLensFilter();
   }
 
-  private rebuildLensFilter(): void {
+  private async rebuildLensFilter(): Promise<void> {
     if (this.svgEl) { this.svgEl.remove(); this.svgEl = null; }
-    if (!this.shouldUseSVG() || this.cfg.refractionStrength <= 0) return;
+    if (this.currentBlobUrl) { URL.revokeObjectURL(this.currentBlobUrl); this.currentBlobUrl = null; }
+    if (!this.shouldUseSVG() || this.cfg.refractionStrength <= 0) {
+      console.log('rebuildLensFilter bail 1:', { svgOk: this.shouldUseSVG(), ref: this.cfg.refractionStrength });
+      return;
+    }
 
     // Use offsetWidth/Height — layout dimensions in CSS pixels, independent of transforms.
     // CRITICAL: Do NOT use getBoundingClientRect() here — it returns visual (post-transform)
     // dimensions which don't match the filterUnits="userSpaceOnUse" coordinate system.
     const w = this.el.offsetWidth || 200;
     const h = this.el.offsetHeight || 100;
-    if (w < 4 || h < 4) return;
+    if (w < 4 || h < 4) {
+      console.log('rebuildLensFilter bail 2: w/h too small', w, h);
+      return;
+    }
+    console.log('rebuildLensFilter building SVG for id:', this.id, 'w/h:', w, h, 'blur:', this.cfg.blur);
 
     // Map resolution — higher = smoother distortion but more CPU
     const qw = this.cfg.quality === 'low'    ? Math.min(w, 60)
@@ -773,7 +806,8 @@ export class LiquidGlassEngine {
       `;
     } else {
       // STANDARD MODE — single displacement map
-      const mapURI = this.generateLensMap(qw, qh, w, h, 'all');
+      const mapURI = await this.generateLensMap(qw, qh, w, h, 'all');
+      this.currentBlobUrl = mapURI;
       filterContent = `
         <feImage href="${mapURI}" result="map" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
         <feDisplacementMap in="SourceGraphic" in2="map" scale="${scale.toFixed(1)}" xChannelSelector="R" yChannelSelector="G"/>
@@ -820,8 +854,9 @@ export class LiquidGlassEngine {
    * 'B' = slight -2% less displacement
    * 'all' / 'G' = standard
    */
-  private generateLensMap(qw: number, qh: number, elW: number, elH: number, channel: 'R' | 'G' | 'B' | 'all' = 'all'): string {
-    const iw = Math.ceil(qw);
+  private generateLensMap(qw: number, qh: number, elW: number, elH: number, channel: 'R' | 'G' | 'B' | 'all' = 'all'): Promise<string> {
+    return new Promise((resolve) => {
+      const iw = Math.ceil(qw);
     const ih = Math.ceil(qh);
     const canvas = document.createElement('canvas');
     canvas.width = iw;
@@ -907,7 +942,14 @@ export class LiquidGlassEngine {
     }
 
     ctx.putImageData(img, 0, 0);
-    return canvas.toDataURL('image/png');
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(URL.createObjectURL(blob));
+      } else {
+        resolve(canvas.toDataURL('image/png')); // fallback if blob fails
+      }
+    }, 'image/png');
+    });
   }
 
   private sdfRoundedRect(px: number, py: number, cx: number, cy: number, r: number): number {
@@ -1164,10 +1206,29 @@ export class LiquidGlassEngine {
   }
 
   updateConfig(config: Partial<LiquidGlassConfig>): void {
+    const oldCfg = this.cfg;
     this.cfg = { ...this.cfg, ...config };
-    // Assign a new unique ID so browsers don't aggressively cache the old SVG filter
-    this.id = `ql${++uid}`;
-    this.rebuildAll();
+
+    const svgNeedsRebuild =
+      oldCfg.refractionStrength !== this.cfg.refractionStrength ||
+      oldCfg.chromaticAberration !== this.cfg.chromaticAberration ||
+      oldCfg.quality !== this.cfg.quality ||
+      oldCfg.refractionMode !== this.cfg.refractionMode;
+
+    if (svgNeedsRebuild) {
+      this.id = `ql${++uid}`;
+      this.rebuildAll();
+    } else {
+      // Surgical CSS update — no DOM teardown to maintain compositing performance
+      this.el.style.borderRadius = `${this.cfg.borderRadius}px`;
+      this.updateLensStyle();
+      this.updateTintStyle();
+      this.updateCurvature();
+      this.updateSpecular();
+      this.updateRim();
+      this.updateNoise();
+      this.applyDepth();
+    }
   }
 
   private rebuildAll(): void {
