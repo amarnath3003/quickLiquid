@@ -184,64 +184,72 @@ function App() {
           </LiquidGlass>
         </div>
 
-        {/* Controls */}
-        <LiquidGlass config={getConfig({ borderRadius: 24 })} className="controls" liquidPress>
-          <h3>Live Configuration</h3>
-          <div className="slider-row">
-            <label>Blur</label>
-            <input type="range" min="0" max="40" step="0.5" value={sliderValues.blur}
-              onChange={e => setUserConfig(c => ({ ...c, blur: +e.target.value }))} />
-            <span className="value">{sliderValues.blur}px</span>
-          </div>
-          <div className="slider-row">
-            <label>Saturation</label>
-            <input type="range" min="1.0" max="2.5" step="0.05" value={sliderValues.saturation}
-              onChange={e => setUserConfig(c => ({ ...c, saturation: +e.target.value }))} />
-            <span className="value">{sliderValues.saturation?.toFixed(2)}</span>
-          </div>
-          <div className="slider-row">
-            <label>Edge Highlight</label>
-            <input type="range" min="0" max="1" step="0.05" value={sliderValues.edgeHighlight}
-              onChange={e => setUserConfig(c => ({ ...c, edgeHighlight: +e.target.value }))} />
-            <span className="value">{sliderValues.edgeHighlight?.toFixed(2)}</span>
-          </div>
-          <div className="slider-row">
-            <label>Specular</label>
-            <input type="range" min="0" max="1" step="0.05" value={sliderValues.specularStrength}
-              onChange={e => setUserConfig(c => ({ ...c, specularStrength: +e.target.value }))} />
-            <span className="value">{sliderValues.specularStrength?.toFixed(2)}</span>
-          </div>
-          <div className="slider-row">
-            <label>Chromatic Aberr.</label>
-            <input type="range" min="0" max="1" step="0.05" value={sliderValues.chromaticAberration}
-              onChange={e => setUserConfig(c => ({ ...c, chromaticAberration: +e.target.value }))} />
-            <span className="value">{sliderValues.chromaticAberration?.toFixed(2)}</span>
-          </div>
-          <div className="slider-row">
-            <label>Border Radius</label>
-            <input type="range" min="4" max="64" step="1" value={sliderValues.borderRadius}
-              onChange={e => setUserConfig(c => ({ ...c, borderRadius: +e.target.value }))} />
-            <span className="value">{sliderValues.borderRadius}px</span>
-          </div>
-          <div className="slider-row">
-            <label>Shadow Depth</label>
-            <input type="range" min="0" max="16" step="1" value={sliderValues.thickness}
-              onChange={e => setUserConfig(c => ({ ...c, thickness: +e.target.value }))} />
-            <span className="value">{sliderValues.thickness}px</span>
-          </div>
-          <div className="slider-row">
-            <label>Tint Opacity</label>
-            <input type="range" min="0" max="0.20" step="0.005" value={sliderValues.tintOpacity}
-              onChange={e => setUserConfig(c => ({ ...c, tintOpacity: +e.target.value }))} />
-            <span className="value">{sliderValues.tintOpacity?.toFixed(3)}</span>
-          </div>
-          <div className="slider-row">
-            <label>Refraction</label>
-            <input type="range" min="0" max="50" step="1" value={sliderValues.refractionStrength}
-              onChange={e => setUserConfig(c => ({ ...c, refractionStrength: +e.target.value }))} />
-            <span className="value">{sliderValues.refractionStrength}</span>
-          </div>
-        </LiquidGlass>
+        {/* Controls Section */}
+        <div className="controls-section">
+          <LiquidGlass config={getConfig({ borderRadius: 24 })} className="controls" liquidPress>
+            <h3>Live Configuration</h3>
+            <div className="slider-row">
+              <label>Blur</label>
+              <input type="range" min="0" max="40" step="0.5" value={sliderValues.blur}
+                onChange={e => setUserConfig(c => ({ ...c, blur: +e.target.value }))} />
+              <span className="value">{sliderValues.blur}px</span>
+            </div>
+            <div className="slider-row">
+              <label>Saturation</label>
+              <input type="range" min="1.0" max="2.5" step="0.05" value={sliderValues.saturation}
+                onChange={e => setUserConfig(c => ({ ...c, saturation: +e.target.value }))} />
+              <span className="value">{sliderValues.saturation?.toFixed(2)}</span>
+            </div>
+            <div className="slider-row">
+              <label>Edge Highlight</label>
+              <input type="range" min="0" max="1" step="0.05" value={sliderValues.edgeHighlight}
+                onChange={e => setUserConfig(c => ({ ...c, edgeHighlight: +e.target.value }))} />
+              <span className="value">{sliderValues.edgeHighlight?.toFixed(2)}</span>
+            </div>
+            <div className="slider-row">
+              <label>Specular</label>
+              <input type="range" min="0" max="1" step="0.05" value={sliderValues.specularStrength}
+                onChange={e => setUserConfig(c => ({ ...c, specularStrength: +e.target.value }))} />
+              <span className="value">{sliderValues.specularStrength?.toFixed(2)}</span>
+            </div>
+            <div className="slider-row">
+              <label>Chromatic Aberr.</label>
+              <input type="range" min="0" max="1" step="0.05" value={sliderValues.chromaticAberration}
+                onChange={e => setUserConfig(c => ({ ...c, chromaticAberration: +e.target.value }))} />
+              <span className="value">{sliderValues.chromaticAberration?.toFixed(2)}</span>
+            </div>
+            <div className="slider-row">
+              <label>Border Radius</label>
+              <input type="range" min="4" max="64" step="1" value={sliderValues.borderRadius}
+                onChange={e => setUserConfig(c => ({ ...c, borderRadius: +e.target.value }))} />
+              <span className="value">{sliderValues.borderRadius}px</span>
+            </div>
+            <div className="slider-row">
+              <label>Shadow Depth</label>
+              <input type="range" min="0" max="16" step="1" value={sliderValues.thickness}
+                onChange={e => setUserConfig(c => ({ ...c, thickness: +e.target.value }))} />
+              <span className="value">{sliderValues.thickness}px</span>
+            </div>
+            <div className="slider-row">
+              <label>Tint Opacity</label>
+              <input type="range" min="0" max="0.20" step="0.005" value={sliderValues.tintOpacity}
+                onChange={e => setUserConfig(c => ({ ...c, tintOpacity: +e.target.value }))} />
+              <span className="value">{sliderValues.tintOpacity?.toFixed(3)}</span>
+            </div>
+            <div className="slider-row">
+              <label>Refraction</label>
+              <input type="range" min="0" max="50" step="1" value={sliderValues.refractionStrength}
+                onChange={e => setUserConfig(c => ({ ...c, refractionStrength: +e.target.value }))} />
+              <span className="value">{sliderValues.refractionStrength}</span>
+            </div>
+          </LiquidGlass>
+
+          {/* Live Preview Box */}
+          <LiquidGlass config={getConfig({})} className="live-preview-box" animateIn={0} liquidPress>
+            <h3>Live Preview</h3>
+            <p>This box reflects the exact values of your sliders above, allowing you to instantly preview changes without scrolling.</p>
+          </LiquidGlass>
+        </div>
       </div>
     </>
   );
