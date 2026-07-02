@@ -199,7 +199,8 @@ export class LiquidGlassEngine {
   private _totalTime = 0;
   private _lastTime = 0;
 
-  private currentBlobUrl: string | null = null;
+  private currentBlobUrls: string[] = [];
+  private lensBuildVersion = 0;
   private static _svgOk: boolean | null = null;
   private pressHandlers: { down: () => void; up: () => void; leave: () => void } | null = null;
 
@@ -220,7 +221,7 @@ export class LiquidGlassEngine {
     
     this.cfg = merged;
     this.id = `ql${++uid}`;
-    this.currentBlobUrl = null;
+    this.currentBlobUrls = [];
     this.currentAngle = this.cfg.lightAngle;
     this.targetAngle = this.cfg.lightAngle;
     this.mount();
@@ -252,6 +253,7 @@ export class LiquidGlassEngine {
 
   private async buildAllLayers(): Promise<void> {
     await this.buildLensFilter();       // SVG displacement map
+    if (this.destroyed) return;
     this.createLensLayer();       // Layer 0: the actual glass lens + blur
     this.createTintLayer();       // Layer 1: subtle white tint
     this.createCurvatureLayer();  // Layer 2: inner convex-lens brightness gradient
@@ -336,14 +338,12 @@ export class LiquidGlassEngine {
       (baseEl.style as any).WebkitBackdropFilter = baseFilter;
       edgeEl.style.backdropFilter = edgeFilter;
       (edgeEl.style as any).WebkitBackdropFilter = edgeFilter;
-      console.log(`[${this.id}] Updated dual lens filters:`, { baseFilter, edgeFilter });
     } else {
       this.lensLayer.innerHTML = '';
       const blurPart = cfg.blur > 0 ? `blur(${cfg.blur}px) ` : '';
       const bdf = `${svgPart}${blurPart}${satPart}`.trim() || 'none';
       this.lensLayer.style.backdropFilter = bdf;
       (this.lensLayer.style as any).WebkitBackdropFilter = bdf;
-      console.log(`[${this.id}] Updated flat lens filter:`, bdf);
     }
   }
 
@@ -364,8 +364,16 @@ export class LiquidGlassEngine {
   }
 
   private updateTintStyle(): void {
-    if (!this.tintLayer) return;
     const cfg = this.cfg;
+    if (cfg.tintOpacity <= 0) {
+      this.tintLayer?.remove();
+      this.tintLayer = null;
+      return;
+    }
+    if (!this.tintLayer) {
+      this.createTintLayer();
+      return;
+    }
     const mixBlendMode = cfg.adaptiveTint ? 'overlay' : 'normal';
     Object.assign(this.tintLayer.style, {
       backgroundColor: `rgba(${cfg.tint}, ${cfg.tintOpacity * (cfg.tintStrength || 1.0)})`,
@@ -592,8 +600,16 @@ export class LiquidGlassEngine {
   }
 
   private updateNoise(): void {
-    if (!this.noiseLayer) return;
     const cfg = this.cfg;
+    if (cfg.noiseOpacity <= 0) {
+      this.noiseLayer?.remove();
+      this.noiseLayer = null;
+      return;
+    }
+    if (!this.noiseLayer) {
+      this.createNoiseLayer();
+      return;
+    }
     const noiseSvg = `data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E`;
     
     Object.assign(this.noiseLayer.style, {
@@ -714,10 +730,11 @@ export class LiquidGlassEngine {
   }
 
   private async rebuildLensFilter(): Promise<void> {
+    const buildVersion = ++this.lensBuildVersion;
     if (this.svgEl) { this.svgEl.remove(); this.svgEl = null; }
-    if (this.currentBlobUrl) { URL.revokeObjectURL(this.currentBlobUrl); this.currentBlobUrl = null; }
+    this.currentBlobUrls.forEach(url => URL.revokeObjectURL(url));
+    this.currentBlobUrls = [];
     if (!this.shouldUseSVG() || this.cfg.refractionStrength <= 0) {
-      console.log('rebuildLensFilter bail 1:', { svgOk: this.shouldUseSVG(), ref: this.cfg.refractionStrength });
       return;
     }
 
@@ -727,10 +744,8 @@ export class LiquidGlassEngine {
     const w = this.el.offsetWidth || 200;
     const h = this.el.offsetHeight || 100;
     if (w < 4 || h < 4) {
-      console.log('rebuildLensFilter bail 2: w/h too small', w, h);
       return;
     }
-    console.log('rebuildLensFilter building SVG for id:', this.id, 'w/h:', w, h, 'blur:', this.cfg.blur);
 
     // Map resolution — higher = smoother distortion but more CPU
     const qw = this.cfg.quality === 'low'    ? Math.min(w, 60)
@@ -769,9 +784,16 @@ export class LiquidGlassEngine {
       const scaleG = scale;
       const scaleB = scale * Math.max(0.1, 1 - ca * 0.2);
 
-      const mapURIR = this.generateLensMap(qw, qh, w, h, 'R');
-      const mapURIG = this.generateLensMap(qw, qh, w, h, 'G');
-      const mapURIB = this.generateLensMap(qw, qh, w, h, 'B');
+      const [mapURIR, mapURIG, mapURIB] = await Promise.all([
+        this.generateLensMap(qw, qh, w, h, 'R'),
+        this.generateLensMap(qw, qh, w, h, 'G'),
+        this.generateLensMap(qw, qh, w, h, 'B'),
+      ]);
+      if (this.destroyed || buildVersion !== this.lensBuildVersion) {
+        [mapURIR, mapURIG, mapURIB].forEach(url => URL.revokeObjectURL(url));
+        return;
+      }
+      this.currentBlobUrls.push(mapURIR, mapURIG, mapURIB);
 
       filterContent = `
         <feImage href="${mapURIR}" result="mapR" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
@@ -807,7 +829,11 @@ export class LiquidGlassEngine {
     } else {
       // STANDARD MODE — single displacement map
       const mapURI = await this.generateLensMap(qw, qh, w, h, 'all');
-      this.currentBlobUrl = mapURI;
+      if (this.destroyed || buildVersion !== this.lensBuildVersion) {
+        URL.revokeObjectURL(mapURI);
+        return;
+      }
+      this.currentBlobUrls.push(mapURI);
       filterContent = `
         <feImage href="${mapURI}" result="map" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
         <feDisplacementMap in="SourceGraphic" in2="map" scale="${scale.toFixed(1)}" xChannelSelector="R" yChannelSelector="G"/>
@@ -827,6 +853,10 @@ export class LiquidGlassEngine {
     const div = document.createElement('div');
     div.innerHTML = svgStr.trim();
     this.svgEl = div.querySelector('svg')!;
+    if (this.destroyed || buildVersion !== this.lensBuildVersion) {
+      this.svgEl = null;
+      return;
+    }
     document.body.appendChild(this.svgEl);
   }
 
@@ -1206,6 +1236,7 @@ export class LiquidGlassEngine {
   }
 
   updateConfig(config: Partial<LiquidGlassConfig>): void {
+    if (this.destroyed) return;
     const oldCfg = this.cfg;
     this.cfg = { ...this.cfg, ...config };
 
@@ -1213,7 +1244,10 @@ export class LiquidGlassEngine {
       oldCfg.refractionStrength !== this.cfg.refractionStrength ||
       oldCfg.chromaticAberration !== this.cfg.chromaticAberration ||
       oldCfg.quality !== this.cfg.quality ||
-      oldCfg.refractionMode !== this.cfg.refractionMode;
+      oldCfg.refractionMode !== this.cfg.refractionMode ||
+      oldCfg.borderRadius !== this.cfg.borderRadius ||
+      oldCfg.ior !== this.cfg.ior ||
+      oldCfg.caEdgeOnly !== this.cfg.caEdgeOnly;
 
     if (svgNeedsRebuild) {
       this.id = `ql${++uid}`;
@@ -1228,6 +1262,15 @@ export class LiquidGlassEngine {
       this.updateRim();
       this.updateNoise();
       this.applyDepth();
+      this.syncPointerListeners();
+    }
+  }
+
+  private syncPointerListeners(): void {
+    if (this.cfg.cursorTracking || this.cfg.hoverLighting || this.cfg.parallax) {
+      this.setupPointer();
+    } else {
+      this.teardownPointer();
     }
   }
 
@@ -1242,22 +1285,20 @@ export class LiquidGlassEngine {
     this.el.style.filter = '';
     (this.el.style as any).WebkitFilter = '';
 
-    this.buildAllLayers();
+    void this.buildAllLayers();
 
     // Re-attach pointer listeners after rebuild so new cfg flags take effect
-    if (this.cfg.cursorTracking || this.cfg.hoverLighting || this.cfg.parallax) {
-      this.setupPointer();
-    } else {
-      // Ensure we don't leave orphaned listeners from a previous config
-      this.teardownPointer();
-    }
+    this.syncPointerListeners();
   }
 
   destroy(): void {
     this.destroyed = true;
+    this.lensBuildVersion++;
     if (this.rafId) cancelAnimationFrame(this.rafId);
     this.resizeObs?.disconnect();
     this.svgEl?.remove();
+    this.currentBlobUrls.forEach(url => URL.revokeObjectURL(url));
+    this.currentBlobUrls = [];
     this.lensLayer?.remove();
     this.tintLayer?.remove();
     this.curvatureLayer?.remove();

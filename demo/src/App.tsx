@@ -223,61 +223,61 @@ function App() {
 
         {/* Controls Section */}
         <div className="controls-section">
-          <LiquidGlass config={getLiveConfig({ borderRadius: 24 })} className="controls" liquidPress>
+          <LiquidGlass config={getLiveConfig({ borderRadius: 24 })} className="controls">
             <h3>Live Configuration</h3>
             <div className="slider-row">
               <label>Blur</label>
               <input type="range" min="0" max="60" step="0.5" value={sliderValues.blur ?? 24}
-                onChange={e => setUserConfig(c => ({ ...c, blur: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, blur: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.blur}px</span>
             </div>
             <div className="slider-row">
               <label>Saturation</label>
               <input type="range" min="1.0" max="2.5" step="0.05" value={sliderValues.saturation ?? 1.8}
-                onChange={e => setUserConfig(c => ({ ...c, saturation: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, saturation: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.saturation?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Edge Highlight</label>
               <input type="range" min="0" max="1" step="0.05" value={sliderValues.edgeHighlight ?? 0.4}
-                onChange={e => setUserConfig(c => ({ ...c, edgeHighlight: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, edgeHighlight: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.edgeHighlight?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Specular</label>
               <input type="range" min="0" max="1" step="0.05" value={sliderValues.specularStrength ?? 0.3}
-                onChange={e => setUserConfig(c => ({ ...c, specularStrength: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, specularStrength: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.specularStrength?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Chromatic Aberr.</label>
               <input type="range" min="0" max="1" step="0.05" value={sliderValues.chromaticAberration ?? 0.05}
-                onChange={e => setUserConfig(c => ({ ...c, chromaticAberration: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, chromaticAberration: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.chromaticAberration?.toFixed(2)}</span>
             </div>
             <div className="slider-row">
               <label>Border Radius</label>
               {/* Bug fix #8: default fallback to 28 so slider always shows a number */}
               <input type="range" min="4" max="64" step="1" value={sliderValues.borderRadius ?? 28}
-                onChange={e => setUserConfig(c => ({ ...c, borderRadius: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, borderRadius: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.borderRadius ?? 28}px</span>
             </div>
             <div className="slider-row">
               <label>Shadow Depth</label>
               <input type="range" min="0" max="16" step="1" value={sliderValues.thickness ?? 2}
-                onChange={e => setUserConfig(c => ({ ...c, thickness: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, thickness: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.thickness ?? 2}px</span>
             </div>
             <div className="slider-row">
               <label>Tint Opacity</label>
               <input type="range" min="0" max="0.40" step="0.005" value={sliderValues.tintOpacity ?? 0.15}
-                onChange={e => setUserConfig(c => ({ ...c, tintOpacity: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, tintOpacity: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{(sliderValues.tintOpacity ?? 0.15).toFixed(3)}</span>
             </div>
             <div className="slider-row">
               <label>Refraction</label>
               <input type="range" min="0" max="60" step="1" value={sliderValues.refractionStrength ?? 18}
-                onChange={e => setUserConfig(c => ({ ...c, refractionStrength: +e.target.value }))} />
+                onInput={e => setUserConfig(c => ({ ...c, refractionStrength: +(e.target as HTMLInputElement).value }))} />
               <span className="value">{sliderValues.refractionStrength}</span>
             </div>
           </LiquidGlass>
