@@ -113,31 +113,31 @@ export interface LiquidGlassConfig {
 }
 
 export const DEFAULT_CONFIG: LiquidGlassConfig = {
-  blur: 24,
-  saturation: 1.8,
+  blur: 10,
+  saturation: 1.45,
   borderRadius: 32,
-  refractionStrength: 18,
+  refractionStrength: 34,
   ior: 1.45,
-  edgeHighlight: 0.4,
-  chromaticAberration: 0.05,
-  thickness: 2,
+  edgeHighlight: 0.85,
+  chromaticAberration: 0.16,
+  thickness: 3,
   lightAngle: -60,
   dynamicLighting: false,
   quality: 'high',
-  refractionMode: 'auto',
+  refractionMode: 'svg',
   tint: '255, 255, 255',
-  tintOpacity: 0.15,
-  specularStrength: 0.3,
+  tintOpacity: 0.08,
+  specularStrength: 0.78,
   
-  edgeBlurModifier: 1.0,
+  edgeBlurModifier: 1.35,
   adaptiveTint: false,
   tintStrength: 1.0,
   environmentSampling: 'fast',
-  distortionStrength: 18,
-  edgeDistortion: 0.25,
+  distortionStrength: 34,
+  edgeDistortion: 0.42,
   caEdgeOnly: true,
   fresnelPower: 2.0,
-  noiseOpacity: 0.02,
+  noiseOpacity: 0.012,
   noiseScale: 1.0,
   hoverLighting: true,
   cursorTracking: false,
@@ -148,11 +148,11 @@ export const DEFAULT_CONFIG: LiquidGlassConfig = {
 };
 
 export const MATERIAL_PRESETS: Record<string, Partial<LiquidGlassConfig>> = {
-  thin: { blur: 12, thickness: 1, refractionStrength: 10, noiseOpacity: 0.015 },
-  regular: { blur: 24, thickness: 2, refractionStrength: 18, noiseOpacity: 0.02 },
-  thick: { blur: 40, thickness: 4, refractionStrength: 25, noiseOpacity: 0.03, edgeBlurModifier: 1.5 },
-  ultra: { blur: 60, thickness: 6, refractionStrength: 35, noiseOpacity: 0.04, edgeBlurModifier: 2.0 },
-  adaptive: { blur: 30, adaptiveTint: true, tintOpacity: 0.05, saturation: 1.2 },
+  thin: { blur: 6, thickness: 1.5, refractionStrength: 24, tintOpacity: 0.055, noiseOpacity: 0.006, edgeBlurModifier: 1.15 },
+  regular: { blur: 10, thickness: 3, refractionStrength: 34, tintOpacity: 0.08, noiseOpacity: 0.012, edgeBlurModifier: 1.35 },
+  thick: { blur: 16, thickness: 5, refractionStrength: 44, tintOpacity: 0.11, noiseOpacity: 0.014, edgeBlurModifier: 1.6 },
+  ultra: { blur: 22, thickness: 7, refractionStrength: 56, tintOpacity: 0.14, noiseOpacity: 0.018, edgeBlurModifier: 1.85 },
+  adaptive: { blur: 12, adaptiveTint: true, tintOpacity: 0.06, saturation: 1.25, refractionStrength: 36 },
 };
 
 let uid = 0;
@@ -314,9 +314,10 @@ export class LiquidGlassEngine {
       const baseBlur = `blur(${cfg.blur}px) `;
       const edgeBlurAmount = Math.round(cfg.blur * cfg.edgeBlurModifier);
       const edgeBlur = `blur(${edgeBlurAmount}px) `;
+      const opticalPart = `brightness(1.06) contrast(1.04)`;
 
-      const baseFilter = `${svgPart}${baseBlur}${satPart}`.trim() || 'none';
-      const edgeFilter = `${svgPart}${edgeBlur}${satPart}`.trim() || 'none';
+      const baseFilter = `${svgPart}${baseBlur}${satPart} ${opticalPart}`.trim() || 'none';
+      const edgeFilter = `${svgPart}${edgeBlur}${satPart} ${opticalPart}`.trim() || 'none';
 
       let baseEl = this.lensLayer.children[0] as HTMLElement;
       let edgeEl = this.lensLayer.children[1] as HTMLElement;
@@ -327,7 +328,7 @@ export class LiquidGlassEngine {
         Object.assign(baseEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
         edgeEl = document.createElement('div');
         Object.assign(edgeEl.style, { position: 'absolute', inset: '0', borderRadius: 'inherit' });
-        const mask = `radial-gradient(ellipse at center, transparent 40%, black 100%)`;
+        const mask = `radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.35) 70%, black 100%)`;
         edgeEl.style.maskImage = mask;
         (edgeEl.style as any).WebkitMaskImage = mask;
         this.lensLayer.appendChild(baseEl);
@@ -341,7 +342,7 @@ export class LiquidGlassEngine {
     } else {
       this.lensLayer.innerHTML = '';
       const blurPart = cfg.blur > 0 ? `blur(${cfg.blur}px) ` : '';
-      const bdf = `${svgPart}${blurPart}${satPart}`.trim() || 'none';
+      const bdf = `${svgPart}${blurPart}${satPart} brightness(1.06) contrast(1.04)`.trim() || 'none';
       this.lensLayer.style.backdropFilter = bdf;
       (this.lensLayer.style as any).WebkitBackdropFilter = bdf;
     }
@@ -357,6 +358,13 @@ export class LiquidGlassEngine {
 
     const layer = document.createElement('div');
     layer.className = 'ql-tint';
+    Object.assign(layer.style, {
+      position: 'absolute',
+      inset: '0',
+      zIndex: '1',
+      borderRadius: 'inherit',
+      pointerEvents: 'none',
+    });
     
     this.tintLayer = layer;
     this.updateTintStyle();
@@ -375,8 +383,19 @@ export class LiquidGlassEngine {
       return;
     }
     const mixBlendMode = cfg.adaptiveTint ? 'overlay' : 'normal';
+    const opacity = cfg.tintOpacity * (cfg.tintStrength || 1.0);
     Object.assign(this.tintLayer.style, {
-      backgroundColor: `rgba(${cfg.tint}, ${cfg.tintOpacity * (cfg.tintStrength || 1.0)})`,
+      background: [
+        `linear-gradient(180deg,
+          rgba(${cfg.tint}, ${(opacity * 1.25).toFixed(3)}) 0%,
+          rgba(${cfg.tint}, ${(opacity * 0.82).toFixed(3)}) 48%,
+          rgba(${cfg.tint}, ${(opacity * 0.48).toFixed(3)}) 100%
+        )`,
+        `radial-gradient(ellipse 90% 55% at 50% 0%,
+          rgba(255,255,255,${(opacity * 0.7).toFixed(3)}) 0%,
+          transparent 70%
+        )`,
+      ].join(', '),
       mixBlendMode: mixBlendMode,
     });
   }
@@ -404,16 +423,29 @@ export class LiquidGlassEngine {
 
   private updateCurvature(): void {
     if (!this.curvatureLayer) return;
-    const hoverOpacity = this.cfg.hoverLighting ? 0.08 : 0.06;
+    const hoverOpacity = this.cfg.hoverLighting ? 0.12 : 0.08;
     Object.assign(this.curvatureLayer.style, {
       background: [
-        `radial-gradient(ellipse 100% 100% at 50% -20%,
+        `radial-gradient(ellipse 105% 90% at 50% -18%,
           rgba(255,255,255,${hoverOpacity}) 0%,
-          rgba(255,255,255,0.02) 50%,
+          rgba(255,255,255,0.035) 42%,
           transparent 100%
+        )`,
+        `radial-gradient(ellipse 120% 90% at 50% 115%,
+          rgba(0,0,0,0.10) 0%,
+          transparent 56%
+        )`,
+        `linear-gradient(90deg,
+          rgba(255,255,255,0.055) 0%,
+          transparent 14%,
+          transparent 86%,
+          rgba(0,0,0,0.06) 100%
         )`
       ].join(', '),
-      boxShadow: `inset 0 0 ${Math.max(10, this.cfg.thickness * 10)}px rgba(0,0,0,0.02)`,
+      boxShadow: [
+        `inset 0 0 ${Math.max(18, this.cfg.thickness * 12)}px rgba(255,255,255,0.045)`,
+        `inset 0 -${Math.max(10, this.cfg.thickness * 5)}px ${Math.max(18, this.cfg.thickness * 10)}px rgba(0,0,0,0.08)`,
+      ].join(', '),
     });
   }
 
@@ -452,11 +484,48 @@ export class LiquidGlassEngine {
     const hi = this.cfg.specularStrength;
     const angle = this.currentAngle;
     const ca = this.cfg.chromaticAberration;
+    const fresnel = Math.max(0.65, Math.min(4, this.cfg.fresnelPower ?? 2));
+    const focus = Math.max(0.62, Math.min(1.45, 2 / fresnel));
 
     // Light direction mapped from angle (degrees → unit vector)
     const rad = (angle * Math.PI) / 180;
     const lx = Math.sin(rad); // -1=left, +1=right
     const ly = -Math.cos(rad); // -1=top, +1=bottom
+
+    const hotX = 50 + lx * 30;
+    const hotY = Math.max(-4, 9 + ly * 12);
+    const r2 = Math.round(255);
+    const g2 = Math.round(255 - ca * 10);
+    const b2 = Math.round(255 - ca * 5);
+    const primaryW = 34 * focus;
+    const primaryH = 18 * focus;
+    const shoulderW = 90 * focus;
+    const shoulderH = 28 * focus;
+
+    this.specularLayer!.style.background = [
+      `radial-gradient(ellipse ${primaryW.toFixed(1)}% ${primaryH.toFixed(1)}% at ${hotX.toFixed(1)}% ${hotY.toFixed(1)}%,
+        rgba(${r2},${g2},${b2},${(hi * 0.72 * Math.min(1.18, fresnel / 2)).toFixed(3)}) 0%,
+        rgba(255,255,255,${(hi * 0.34).toFixed(3)}) 32%,
+        transparent 78%
+      )`,
+      `radial-gradient(ellipse ${shoulderW.toFixed(1)}% ${shoulderH.toFixed(1)}% at ${hotX.toFixed(1)}% 0%,
+        rgba(255,255,255,${(hi * 0.18).toFixed(3)}) 0%,
+        transparent 78%
+      )`,
+      `linear-gradient(180deg,
+        rgba(255,255,255,${(hi * 0.58).toFixed(3)}) 0%,
+        rgba(255,255,255,${(hi * 0.15).toFixed(3)}) 2px,
+        transparent 9px
+      )`,
+      `linear-gradient(115deg,
+        transparent 0%,
+        transparent 18%,
+        rgba(255,255,255,${(hi * 0.12).toFixed(3)}) 45%,
+        transparent 64%,
+        transparent 100%
+      )`,
+    ].join(', ');
+    return;
 
     // Specular hotspot position — on the lit side, near the edge
     // Apple typical: upper-left area at about (30%, 5%)
@@ -469,7 +538,7 @@ export class LiquidGlassEngine {
     const g = Math.round(255 - ca * 10);
     const b = Math.round(255 - ca * 5);
 
-    this.specularLayer.style.background = [
+    this.specularLayer!.style.background = [
       // 1. PRIMARY SPECULAR — extremely soft, wide ambient glow (Apple style)
       `radial-gradient(ellipse 120% 60% at ${hx.toFixed(1)}% ${hy.toFixed(1)}%,
         rgba(${r},${g},${b},${(hi * 0.40).toFixed(3)}) 0%,
@@ -527,9 +596,9 @@ export class LiquidGlassEngine {
     const gradAngle = ((angle + 180) % 360);
 
     // Border opacities based on Fresnel: lit face is ~85%, shadow face ~20%
-    const topOp   = Math.min(0.40, hi * 0.40);
-    const sideOp  = Math.min(0.15, hi * 0.15);
-    const btmOp   = Math.min(0.05, hi * 0.05);
+    const topOp   = Math.min(0.86, hi * 0.92);
+    const sideOp  = Math.min(0.42, hi * 0.46);
+    const btmOp   = Math.min(0.18, hi * 0.22);
 
     // Chromatic aberration on the border edges — very subtle color fringes
     // These appear on rounded corners where light splits into spectrum
@@ -560,11 +629,13 @@ export class LiquidGlassEngine {
       backgroundClip: 'padding-box, border-box',
       boxShadow: [
         // Inner top rim — simulates the top glass face at the border
-        `inset 0 1px 0 rgba(255,255,255,${(hi * 0.40).toFixed(3)})`,
+        `inset 0 1px 0 rgba(255,255,255,${(hi * 0.82).toFixed(3)})`,
+        `inset 1px 0 0 rgba(255,255,255,${(hi * 0.22).toFixed(3)})`,
+        `inset -1px 0 0 rgba(255,255,255,${(hi * 0.10).toFixed(3)})`,
         // Inner bottom dimmer edge
-        `inset 0 -1px 0 rgba(255,255,255,${(hi * 0.04).toFixed(3)})`,
+        `inset 0 -1px 0 rgba(0,0,0,${(hi * 0.16).toFixed(3)})`,
         // Outer glow — barely visible, just enough to separate from background
-        `0 0 0 0.5px rgba(255,255,255,${(hi * 0.05).toFixed(3)})`,
+        `0 0 0 0.5px rgba(255,255,255,${(hi * 0.20).toFixed(3)})`,
         ...caBoxShadows,
       ].join(', '),
     });
@@ -635,9 +706,13 @@ export class LiquidGlassEngine {
     // Bug fix #3: use thickness (the user-facing depth control) as the sole shadow driver.
     // elevation/shadowDiffusion are derived from it so the slider is consistent.
     if (t < 1) { this.el.style.boxShadow = 'none'; return; }
+    const rad = (this.currentAngle * Math.PI) / 180;
+    const sx = Math.round(Math.sin(rad) * t * -2.4);
+    const sy = Math.round(Math.max(1, Math.cos(rad) * t * 2.2 + t * 5.2));
     this.el.style.boxShadow = [
-      `0 ${Math.round(t * 4)}px ${Math.round(t * 16)}px rgba(0,0,0,0.12)`,
-      `0 ${Math.round(t)}px ${Math.round(t * 4)}px rgba(0,0,0,0.04)`,
+      `${sx}px ${sy}px ${Math.round(t * 22)}px rgba(0,0,0,0.18)`,
+      `${Math.round(sx * 0.35)}px ${Math.round(sy * 0.22)}px ${Math.round(t * 5)}px rgba(0,0,0,0.10)`,
+      `0 0 ${Math.round(t * 10)}px rgba(255,255,255,0.05)`,
     ].join(', ');
   }
 
@@ -910,6 +985,8 @@ export class LiquidGlassEngine {
     const caScale = channel === 'R' ? 1.0 + this.cfg.chromaticAberration * 0.15
                   : channel === 'B' ? 1.0 - this.cfg.chromaticAberration * 0.10
                   : 1.0;
+    const iorPower = Math.max(0.08, Math.min(1.45, (1 - 1 / this.cfg.ior) / (1 - 1 / 1.45)));
+    const edgeDistortion = Math.max(0, Math.min(1, this.cfg.edgeDistortion ?? 0.42));
 
     for (let py = 0; py < ih; py++) {
       for (let px = 0; px < iw; px++) {
@@ -940,7 +1017,7 @@ export class LiquidGlassEngine {
         //
         // This concentrates distortion in the rim band, leaving the glass center clear —
         // the defining visual characteristic of Apple liquid glass.
-        const profile = lensProfile(t);
+        const profile = lensProfile(t, edgeDistortion) * iorPower;
 
         // Surface normal from SDF gradient (points outward, toward the boundary)
         const eps = 0.8;
@@ -1247,6 +1324,7 @@ export class LiquidGlassEngine {
       oldCfg.refractionMode !== this.cfg.refractionMode ||
       oldCfg.borderRadius !== this.cfg.borderRadius ||
       oldCfg.ior !== this.cfg.ior ||
+      oldCfg.edgeDistortion !== this.cfg.edgeDistortion ||
       oldCfg.caEdgeOnly !== this.cfg.caEdgeOnly;
 
     if (svgNeedsRebuild) {
@@ -1382,7 +1460,7 @@ function clamp8(v: number): number {
  *   peak at t ≈ 0.25 (near the edge, where curvature is max)
  *   → this matches real glass behavior and Apple's visual style.
  */
-function lensProfile(t: number): number {
+function lensProfile(t: number, edgeDistortion = 0.42): number {
   // t = 0: glass rim  → displacement = 0 (glass meets frame, rays parallel)
   // t ≈ 0.12: peak    → displacement = 1 (maximum surface curvature)
   // t = 1: center     → displacement = 0 (flat glass center, no bend)
@@ -1391,7 +1469,8 @@ function lensProfile(t: number): number {
   // in just 12% of the radius) and the fall is gradual, creating the
   // "thick glass rim" look characteristic of Apple liquid glass where you see
   // a clear center and strongly bent edges.
-  const rise = smoothstep(0, 0.12, t);
-  const fall = 1.0 - smoothstep(0.12, 0.72, t);
-  return rise * fall;
+  const rise = smoothstep(0, 0.08, t);
+  const fall = 1.0 - smoothstep(0.22, 0.86, t);
+  const rimKick = 1.0 - smoothstep(0, 0.18, t);
+  return Math.min(1, rise * fall * 1.08 + rimKick * edgeDistortion * 0.52);
 }
