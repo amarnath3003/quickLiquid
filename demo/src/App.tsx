@@ -49,14 +49,13 @@ function App() {
   const getConfig = useCallback(
     (fixedOverrides: Partial<LiquidGlassConfig> = {}) => ({
       ...GLASS_BASE,
-      ...userConfig,
       ...fixedOverrides,
       dynamicLighting: false,
     }),
-    [userConfig],
+    [],
   );
 
-  // Convenience: fully slider-driven config with no overrides (for Live Preview)
+  // Slider-driven config for the Live Preview box only.
   const getLiveConfig = useCallback(
     (extraOverrides: Partial<LiquidGlassConfig> = {}) => ({
       ...GLASS_BASE,
@@ -121,7 +120,7 @@ function App() {
       <div className="grid-pattern" />
 
       {/* Perf HUD */}
-      <LiquidGlass config={getLiveConfig({ borderRadius: 12 })} className="perf-hud">
+      <LiquidGlass config={getConfig({ borderRadius: 12 })} className="perf-hud">
         <strong>Perf</strong><br />
         Avg: {metrics ? `${metrics.avgFrameTime.toFixed(2)}ms` : '—'}<br />
         Frames: {metrics?.frameCount ?? 0}
@@ -135,7 +134,7 @@ function App() {
 
         {/* Nav bar */}
         <LiquidGlass
-          config={getLiveConfig({ borderRadius: 50 })}
+          config={getConfig({ borderRadius: 50 })}
           className="glass-nav"
           onPerformanceUpdate={handlePerf}
           liquidPress
@@ -147,7 +146,7 @@ function App() {
         {/* Hero pill */}
         <div className="hero-scene">
           <div className="hero-bg-text" aria-hidden="true">Liquid Glass</div>
-          <LiquidGlass config={getLiveConfig({ borderRadius: 999 })} className="glass-hero-pill" animateIn={200} />
+          <LiquidGlass config={getConfig({ borderRadius: 999 })} className="glass-hero-pill" animateIn={200} />
         </div>
 
         <div className="section-header">
@@ -197,7 +196,7 @@ function App() {
              All other properties (blur, saturation, etc.) respond to sliders. */}
         <div className="demo-grid">
           {/* Default: fully slider-driven */}
-          <LiquidGlass config={getLiveConfig({ borderRadius: 28 })} className="glass-panel" animateIn={0} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28 })} className="glass-panel" animateIn={0} liquidPress>
             <h2>Liquid Glass</h2>
             <p>The standard Apple-like default. Deep frosted blur, subtle edge highlights, and pure optical refraction.</p>
           </LiquidGlass>
@@ -223,7 +222,7 @@ function App() {
 
         {/* Controls Section */}
         <div className="controls-section">
-          <LiquidGlass config={getLiveConfig({ borderRadius: 24 })} className="controls">
+          <LiquidGlass config={getConfig({ borderRadius: 24 })} className="controls">
             <h3>Live Configuration</h3>
             <div className="slider-row">
               <label>Blur</label>
