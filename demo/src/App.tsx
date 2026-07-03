@@ -4,13 +4,20 @@ import { LiquidGlass } from 'quick-liquid/react';
 import type { LiquidGlassConfig } from 'quick-liquid';
 import { LiquidGroup, LiquidGesture, LiquidTabBar } from 'quick-liquid';
 
-interface Metrics { avgFrameTime: number; lastFrameTime: number; frameCount: number; quality: string; }
+interface Metrics {
+  avgFrameTime: number;
+  lastFrameTime: number;
+  frameCount: number;
+  quality: string;
+  mapGenMs?: number;
+  mapPixelsComputed?: number;
+}
 
 type NumericConfigKey =
   | 'blur'
   | 'saturation'
   | 'refractionStrength'
-  | 'edgeDistortion'
+  | 'bezelWidth'
   | 'edgeHighlight'
   | 'specularStrength'
   | 'fresnelPower'
@@ -19,8 +26,6 @@ type NumericConfigKey =
   | 'thickness'
   | 'borderRadius'
   | 'tintOpacity'
-  | 'tintStrength'
-  | 'edgeBlurModifier'
   | 'noiseOpacity'
   | 'lightAngle';
 
@@ -35,44 +40,40 @@ type SliderControl = {
 };
 
 const GLASS_BASE: Partial<LiquidGlassConfig> = {
-  blur: 10,
-  saturation: 1.45,
-  refractionStrength: 34,
-  edgeHighlight: 0.85,
-  specularStrength: 0.78,
-  chromaticAberration: 0.16,
-  thickness: 3,
+  blur: 3,
+  saturation: 1.5,
+  refractionStrength: 22,
+  bezelWidth: 34,
+  thickness: 24,
+  edgeHighlight: 0.9,
+  specularStrength: 0.42,
+  chromaticAberration: 0.3,
   borderRadius: 28,
   dynamicLighting: false,
-  tintOpacity: 0.08,
-  ior: 1.45,
-  lightAngle: -60,
+  tintOpacity: 0.04,
+  ior: 1.5,
+  lightAngle: -35,
   quality: 'high',
   refractionMode: 'svg',
   tint: '255,255,255',
-  edgeBlurModifier: 1.35,
-  edgeDistortion: 0.42,
-  fresnelPower: 2,
-  noiseOpacity: 0.012,
+  fresnelPower: 2.2,
+  noiseOpacity: 0,
   noiseScale: 1,
-  tintStrength: 1,
 };
 
 const LIVE_CONTROLS: SliderControl[] = [
-  { key: 'blur', label: 'Blur', min: 0, max: 32, step: 0.5, unit: 'px', precision: 1 },
+  { key: 'blur', label: 'Frost Blur', min: 0, max: 32, step: 0.5, unit: 'px', precision: 1 },
   { key: 'saturation', label: 'Saturation', min: 1, max: 2.4, step: 0.05, precision: 2 },
-  { key: 'refractionStrength', label: 'Refraction', min: 0, max: 64, step: 1, precision: 0 },
-  { key: 'edgeDistortion', label: 'Edge Bend', min: 0, max: 0.8, step: 0.02, precision: 2 },
-  { key: 'edgeHighlight', label: 'Edge Highlight', min: 0, max: 1, step: 0.02, precision: 2 },
-  { key: 'specularStrength', label: 'Specular', min: 0, max: 1, step: 0.02, precision: 2 },
-  { key: 'fresnelPower', label: 'Fresnel', min: 0.8, max: 4, step: 0.1, precision: 1 },
-  { key: 'chromaticAberration', label: 'Prism Split', min: 0, max: 0.8, step: 0.02, precision: 2 },
+  { key: 'refractionStrength', label: 'Refraction', min: 0, max: 64, step: 1, unit: 'px', precision: 0 },
+  { key: 'bezelWidth', label: 'Bezel Width', min: 6, max: 80, step: 1, unit: 'px', precision: 0 },
+  { key: 'thickness', label: 'Glass Depth', min: 2, max: 48, step: 1, unit: 'px', precision: 0 },
   { key: 'ior', label: 'IOR', min: 1.1, max: 1.8, step: 0.01, precision: 2 },
-  { key: 'thickness', label: 'Thickness', min: 0, max: 9, step: 0.25, unit: 'px', precision: 2 },
+  { key: 'chromaticAberration', label: 'Prism Split', min: 0, max: 1, step: 0.02, precision: 2 },
+  { key: 'edgeHighlight', label: 'Rim Light', min: 0, max: 1, step: 0.02, precision: 2 },
+  { key: 'specularStrength', label: 'Bezel Sheen', min: 0, max: 1, step: 0.02, precision: 2 },
+  { key: 'fresnelPower', label: 'Lobe Focus', min: 1, max: 5, step: 0.1, precision: 1 },
   { key: 'borderRadius', label: 'Radius', min: 4, max: 72, step: 1, unit: 'px', precision: 0 },
   { key: 'tintOpacity', label: 'Tint Opacity', min: 0, max: 0.22, step: 0.005, precision: 3 },
-  { key: 'tintStrength', label: 'Tint Strength', min: 0.4, max: 1.6, step: 0.05, precision: 2 },
-  { key: 'edgeBlurModifier', label: 'Edge Frost', min: 1, max: 2.2, step: 0.05, precision: 2 },
   { key: 'noiseOpacity', label: 'Micro Texture', min: 0, max: 0.03, step: 0.001, precision: 3 },
   { key: 'lightAngle', label: 'Light Angle', min: -180, max: 180, step: 5, unit: 'deg', precision: 0 },
 ];
@@ -109,6 +110,17 @@ function App() {
   const tabItemsRef = useRef<(HTMLElement | null)[]>([]);
   const liquidGroupRef = useRef<LiquidGroup | null>(null);
   const tabBarCtrlRef = useRef<LiquidTabBar | null>(null);
+  const playgroundRef = useRef<HTMLDivElement>(null);
+
+  // Draggable refraction playground lens
+  useEffect(() => {
+    const container = playgroundRef.current;
+    if (!container) return;
+    const lens = container.querySelector<HTMLElement>('.playground-lens');
+    if (!lens) return;
+    const gesture = new LiquidGesture(lens, { pressScale: 1.04, pressSquish: 0, wobbleOnPress: false, releaseSpring: 'default' });
+    return () => gesture.destroy();
+  }, []);
 
   const sliderValues = useMemo(
     () => ({ ...GLASS_BASE, ...userConfig }),
@@ -160,8 +172,9 @@ function App() {
 
       <LiquidGlass config={getConfig({ borderRadius: 12 })} className="perf-hud">
         <strong>Perf</strong><br />
-        Avg: {metrics ? `${metrics.avgFrameTime.toFixed(2)}ms` : '-'}<br />
-        Frames: {metrics?.frameCount ?? 0}
+        Map gen: {metrics?.mapGenMs != null ? `${metrics.mapGenMs.toFixed(1)}ms` : '-'}<br />
+        Map px: {metrics?.mapPixelsComputed?.toLocaleString() ?? '-'}<br />
+        Light: {metrics ? `${metrics.avgFrameTime.toFixed(2)}ms/f` : '-'}
       </LiquidGlass>
 
       <div className="demo-container">
@@ -183,6 +196,47 @@ function App() {
         <div className="hero-scene">
           <div className="hero-bg-text" aria-hidden="true">Liquid Glass</div>
           <LiquidGlass config={getConfig({ borderRadius: 999 })} className="glass-hero-pill" animateIn={200} />
+        </div>
+
+        <div className="playground-demo">
+          <h3>Refraction Playground</h3>
+          <p>Drag the lens — exact Snell's-law refraction of everything beneath it.</p>
+          <div className="playground" ref={playgroundRef}>
+            <div className="pg-bg" aria-hidden="true">
+              <div className="pg-stripes" />
+              <div className="pg-type">
+                <span>LIGHT</span><span>BENDS</span><span>AT THE</span><span>BEZEL</span>
+              </div>
+              <div className="pg-swatches">
+                {['#ff3b72', '#ffb340', '#25d98a', '#2576ff', '#8d63ff', '#ff4f9f'].map(c => (
+                  <i key={c} style={{ background: c }} />
+                ))}
+              </div>
+            </div>
+            <LiquidGlass
+              config={getConfig({ borderRadius: 999, blur: 1, refractionStrength: 34, tintOpacity: 0.015, thickness: 30, bezelWidth: 42 })}
+              className="playground-lens"
+            />
+          </div>
+        </div>
+
+        <div className="materials-demo">
+          <h3>Materials</h3>
+          <p>Apple material presets — from water-clear to heavy frost.</p>
+          <div className="materials-strip">
+            {(['clear', 'regular', 'thick', 'ultra'] as const).map((m, i) => (
+              <LiquidGlass
+                key={m}
+                config={{ material: m, borderRadius: 24, quality: 'high', refractionMode: 'svg' }}
+                className="material-card"
+                animateIn={i * 90}
+                liquidPress
+              >
+                <h4>{m}</h4>
+                <span className="material-sub">material="{m}"</span>
+              </LiquidGlass>
+            ))}
+          </div>
         </div>
 
         <div className="section-header">
@@ -231,17 +285,17 @@ function App() {
             <p>The standard Apple-like default. Deep frosted blur, subtle edge highlights, and pure optical refraction.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28, chromaticAberration: 0.8, refractionStrength: 35 })} className="glass-panel" animateIn={120} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28, chromaticAberration: 1, refractionStrength: 34 })} className="glass-panel" animateIn={120} liquidPress>
             <h2>Prismatic</h2>
             <p>High chromatic aberration splits the light like a prism, creating beautiful colorful fringing at the edges.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 22, tintOpacity: 0.14, edgeBlurModifier: 1.85 })} className="glass-panel" animateIn={240} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 18, tintOpacity: 0.12, refractionStrength: 14 })} className="glass-panel" animateIn={240} liquidPress>
             <h2>Frosted</h2>
-            <p>Heavy blur and tint opacity with minimal optical distortion. Perfect for modal backdrops and floating panels.</p>
+            <p>Heavy blur and tint opacity with gentle optical distortion. Perfect for modal backdrops and floating panels.</p>
           </LiquidGlass>
 
-          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 2, refractionStrength: 45, tintOpacity: 0.0 })} className="glass-panel" animateIn={360} liquidPress>
+          <LiquidGlass config={getConfig({ borderRadius: 28, blur: 0.5, refractionStrength: 40, tintOpacity: 0.0, thickness: 34, bezelWidth: 44 })} className="glass-panel" animateIn={360} liquidPress>
             <h2>Crystal Clear</h2>
             <p>Almost zero blur but massive refraction and intense specular highlights. Looks like a polished, heavy piece of crystal.</p>
           </LiquidGlass>

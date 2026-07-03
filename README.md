@@ -31,12 +31,13 @@ graph TD
 
 ## ✨ Features
 
-- **Real Refraction (Snell's Law):** Dynamic SVG coordinate warping simulating a real physical convex glass lens.
-- **Dynamic Specular Lighting:** Elliptical Blinn-Phong crescent highlight and outer edge rims that follow your cursor.
-- **Chromatic Aberration:** Per-channel RGB coordinate offsets for realistic light-splitting fringes.
-- **Water Droplet Merging (Metaballs):** Seamlessly blend and morph adjacent glass elements on the fly.
-- **Ultra High Performance:** Runs on hardware-accelerated CSS and optimized inline SVG data URIs.
-- **React-First Integration:** Full React wrapper component supporting instant mount animations, jiggles, and gesture states.
+- **Exact Refraction (vector Snell's law):** the displacement field is ray-traced through a convex glass bezel — thickness, bezel width, and IOR are *physical* knobs, not art sliders. Full derivation in [PHYSICS.md](packages/quick-liquid/PHYSICS.md).
+- **Apple-signature lighting:** two-lobe conic rim light (bright at the light angle and its mirror) + soft bezel sheen — not a generic glassmorphism fog.
+- **Chromatic Aberration for free:** dispersion is a linear per-channel scale on one shared map — three `feDisplacementMap` scales, zero extra map generation.
+- **Heavily optimized map generation:** 1-D LUT reduction (no per-pixel trig), bezel-band-only iteration, 4-fold symmetry, shared refcounted map cache — 0.3–5 ms per unique geometry, same-size elements share one map.
+- **Minimal-loss encoding:** displacement maps are normalized to the full 8-bit range with `scale = 2·Δmax` + ordered dithering → quantization error ≈ 0.1 px, the theoretical minimum for 8-bit maps.
+- **Water Droplet Merging (Metaballs):** seamlessly blend and morph adjacent glass elements on the fly.
+- **React-First Integration:** full React wrapper with mount animations, jiggles, and gesture states.
 
 ---
 
@@ -115,17 +116,23 @@ Configure the engine properties for the perfect balance of visual depth and rend
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `blur` | `number` | `24` | Backdrop blur radius in pixels. |
-| `refractionStrength`| `number` | `18` | Distortion amount (magnification & edge displacement). |
-| `saturation` | `number` | `1.8` | Background color saturation multiplier through the glass. |
-| `chromaticAberration`| `number` | `0.05` | RGB separation strength at refracting corners. |
-| `dynamicLighting` | `boolean`| `false` | Dynamically align specular crescent to follow cursor position. |
-| `ior` | `number` | `1.45` | Index of Refraction for Snell's law gradient. |
-| `edgeHighlight` | `number` | `0.4` | Brightness of the glass edge and outer rim border. |
-| `specularStrength` | `number` | `0.3` | Intensity of the primary Blinn-Phong crescent highlight. |
-| `tint` | `string` | `'255,255,255'`| RGB value for glass internal tinting. |
-| `tintOpacity` | `number` | `0.15` | Opacity of the tint layer. |
-| `quality` | `'high' \| 'medium' \| 'low'` | `'high'` | Resolution multiplier of the generated SVG refraction maps. |
+| `material` | `'clear' \| 'thin' \| 'regular' \| 'thick' \| 'ultra'` | — | Apple material preset (sets blur/tint/refraction together). |
+| `refractionStrength`| `number` | `22` | **Max rim displacement in px.** The physical falloff shape comes from `thickness`/`bezelWidth`/`ior`. |
+| `bezelWidth` | `number` | `34` | Width (px) of the curved bezel band where light bends. |
+| `thickness` | `number` | `24` | Glass slab depth (px) — shapes the displacement falloff and the shadow. |
+| `ior` | `number` | `1.5` | Index of refraction (1.4–1.6 = glass). |
+| `chromaticAberration`| `number` | `0.3` | 0–1 → per-channel dispersion split at the bezel. |
+| `blur` | `number` | `3` | Backdrop frost blur (px). `clear` ≈ 2, `regular` ≈ 14. |
+| `saturation` | `number` | `1.5` | Backdrop saturation boost through the glass. |
+| `lightAngle` | `number` | `-35` | Light direction in degrees (0 = top). |
+| `edgeHighlight` | `number` | `0.9` | Crisp two-lobe rim ring intensity. |
+| `specularStrength` | `number` | `0.42` | Soft bezel sheen intensity. |
+| `fresnelPower` | `number` | `2.2` | Rim lobe tightness (1 wide … 5 tight). |
+| `tint` / `tintOpacity` | `string` / `number` | `'255,255,255'` / `0.04` | Material tint. Keep ≤ 0.05 for clear glass. |
+| `dynamicLighting` | `boolean`| `false` | Rim lobes follow the cursor. |
+| `quality` | `'high' \| 'medium' \| 'low'` | `'high'` | Displacement map resolution cap (1024/384/128 px). |
+
+**Browser notes:** the refraction path (`backdrop-filter: url()`) renders in Chromium; other engines gracefully fall back to frost + lighting. Two Chromium stacking pitfalls that silently disable refraction are documented in [VISUAL_QA_HANDOFF.md](VISUAL_QA_HANDOFF.md) — in short: never put `isolation`, `filter`, `opacity`, or `mask` on the glass host, and never give the lens layer an explicit `z-index`.
 
 ---
 
