@@ -23,12 +23,17 @@ The output in `dist/` is fully static — deploy it to any static host
 
 ## Structure
 
+Two pages (Vite multi-page build): the landing page at `/` and the full reference
+at `/docs/` (`docs/index.html` → `src/docs-main.tsx` → `DocsApp`).
+
 - `src/data/properties.ts` — single source of truth for every config property;
   drives both the playground controls and the docs API table so they can't drift.
-- `src/sections/` — Nav, Hero (draggable metaball droplets), Features (glass cards),
-  Liquid (LiquidTabBar + liquidPress + jiggle demos), Install, Playground, Docs, Footer.
+- `src/sections/` — Nav, Hero (draggable glass card + frosted pill + clear lens),
+  Features (glass cards), Liquid (LiquidTabBar + liquidPress + jiggle demos),
+  Install, Playground, Docs (rendered on /docs/), Footer.
 - `src/components/` — `CodeBlock` (copyable code), `Droplet` (the mascot),
-  `Goo` (ambient metaball background), `Marquee`, `Drip` (section dividers).
+  `Goo` (ambient metaball background), `Marquee` (words sliding under clear +
+  frosted glass), `useLiquidTabBar` (tab-bar wiring: font-load + resize realign).
 
 ## Design language
 

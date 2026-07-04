@@ -1,15 +1,15 @@
 import { LiquidGlass } from 'quick-liquid/react';
 import { Droplet } from '../components/Droplet';
 
-const LINKS = [
-  { href: '#features', label: 'Optics' },
-  { href: '#liquid', label: 'Motion' },
-  { href: '#install', label: 'Install' },
-  { href: '#playground', label: 'Playground' },
-  { href: '#docs', label: 'Docs' },
-];
+export function Nav({ base = '' }: { base?: string }) {
+  const links = [
+    { href: `${base}#features`, label: 'Optics' },
+    { href: `${base}#liquid`, label: 'Motion' },
+    { href: `${base}#install`, label: 'Install' },
+    { href: `${base}#playground`, label: 'Playground' },
+    { href: '/docs/', label: 'Docs' },
+  ];
 
-export function Nav() {
   return (
     <div className="nav-shell">
       <LiquidGlass
@@ -29,15 +29,15 @@ export function Nav() {
         }}
       >
         <nav className="nav-inner" aria-label="Main">
-          <a className="nav-brand" href="#top">
+          <a className="nav-brand" href={base || '#top'}>
             <Droplet size={26} poke={false} className="nav-brand__drop" />
             <span className="wordmark">
               quick<em>liquid</em>
             </span>
           </a>
           <div className="nav-links">
-            {LINKS.map(l => (
-              <a key={l.href} href={l.href}>
+            {links.map(l => (
+              <a key={l.label} href={l.href}>
                 {l.label}
               </a>
             ))}

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LiquidGlass } from 'quick-liquid/react';
 import type { LiquidGlassRef } from 'quick-liquid/react';
-import { DEFAULT_CONFIG, MATERIAL_PRESETS, LiquidGesture, LiquidTabBar } from 'quick-liquid';
+import { DEFAULT_CONFIG, MATERIAL_PRESETS, LiquidGesture } from 'quick-liquid';
 import type { LiquidGlassConfig } from 'quick-liquid';
+import { useLiquidTabBar } from '../components/useLiquidTabBar';
 import { Droplet } from '../components/Droplet';
 import {
   PROPERTIES,
@@ -58,26 +59,17 @@ export function Playground() {
   const stageRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const flashTimer = useRef<number>(0);
-  const sceneBarRef = useRef<HTMLDivElement>(null);
-  const sceneCtrl = useRef<LiquidTabBar | null>(null);
 
   /* Scene switcher is a real LiquidTabBar — the selection flows between tabs */
-  useEffect(() => {
-    if (!sceneBarRef.current) return;
-    const items = sceneBarRef.current.querySelectorAll<HTMLElement>('.lt-item');
-    if (items.length === 0) return;
-    const bar = new LiquidTabBar(sceneBarRef.current, [...items], { spring: 'default' });
-    sceneCtrl.current = bar;
-    return () => {
-      bar.destroy();
-      sceneCtrl.current = null;
-    };
-  }, []);
+  const { containerRef: sceneBarRef, select: selectScene } = useLiquidTabBar(0);
 
-  const pickScene = useCallback((index: number) => {
-    setScene(SCENES[index].id);
-    sceneCtrl.current?.select(index);
-  }, []);
+  const pickScene = useCallback(
+    (index: number) => {
+      setScene(SCENES[index].id);
+      selectScene(index);
+    },
+    [selectScene],
+  );
 
   const sceneDark = SCENES.find(s => s.id === scene)!.dark;
 

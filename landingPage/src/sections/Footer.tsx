@@ -32,8 +32,8 @@ export function Footer() {
             >
               the physics
             </a>
-            <a href="#docs">docs</a>
-            <a href="#playground">playground</a>
+            <a href="/docs/">docs</a>
+            <a href="/#playground">playground</a>
           </nav>
         </div>
         <p className="footer-license">

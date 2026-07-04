@@ -1,30 +1,71 @@
+import { LiquidGlass } from 'quick-liquid/react';
+
+/**
+ * Motion behind glass — bold type slides right-to-left underneath two real
+ * glass panels (one clear, one frosted), so the lensing is visible on
+ * moving content. Mirrors the demo app's motion stage.
+ */
 const WORDS = [
-  'refraction',
-  'dispersion',
   'surface tension',
   "snell's law",
   'fresnel lobes',
-  'metaballs',
+  'dispersion',
+  'refraction',
   'spring physics',
-  '60 fps',
-  'zero shaders',
 ];
 
-export function Marquee() {
-  const track = WORDS.map((w, i) => (
-    <span key={i}>
-      <em>{w}</em>
-      <i aria-hidden>◦</i>
-    </span>
-  ));
+export function GlassMarquee() {
+  const row = [...WORDS, ...WORDS];
   return (
-    <div className="marquee" aria-hidden>
-      <div className="marquee__track">
-        {track}
-        {track.map((el, i) => (
-          <span key={`b${i}`}>{el.props.children}</span>
-        ))}
+    <section className="motion" aria-label="Motion behind glass">
+      <div className="motion-stage">
+        <div className="motion-bg" aria-hidden>
+          <i className="motion-beam" />
+          <div className="motion-track">
+            {row.map((w, i) => (
+              <span key={i}>
+                {w}
+                <i>·</i>
+              </span>
+            ))}
+          </div>
+          <i className="motion-ball mball-1" />
+          <i className="motion-ball mball-2" />
+          <i className="motion-ball mball-3" />
+          <i className="motion-grid" />
+        </div>
+
+        <LiquidGlass
+          className="motion-glass motion-glass--clear"
+          config={{
+            blur: 1.5,
+            refractionStrength: 28,
+            thickness: 28,
+            bezelWidth: 34,
+            tintOpacity: 0.02,
+            chromaticAberration: 0.35,
+            appearance: 'dark',
+            borderRadius: 26,
+          }}
+        >
+          <span className="motion-label">clear — pure lens</span>
+        </LiquidGlass>
+
+        <LiquidGlass
+          className="motion-glass motion-glass--frosted"
+          config={{
+            blur: 16,
+            tintOpacity: 0.09,
+            refractionStrength: 14,
+            thickness: 20,
+            bezelWidth: 22,
+            appearance: 'dark',
+            borderRadius: 26,
+          }}
+        >
+          <span className="motion-label">frosted — blur + tint</span>
+        </LiquidGlass>
       </div>
-    </div>
+    </section>
   );
 }

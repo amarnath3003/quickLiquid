@@ -4,11 +4,9 @@ import { Features } from './sections/Features';
 import { Liquid } from './sections/Liquid';
 import { Install } from './sections/Install';
 import { Playground } from './sections/Playground';
-import { Docs } from './sections/Docs';
 import { Footer } from './sections/Footer';
 import { Goo } from './components/Goo';
-import { Marquee } from './components/Marquee';
-import { Drip } from './components/Drip';
+import { GlassMarquee } from './components/Marquee';
 
 export default function App() {
   return (
@@ -18,14 +16,11 @@ export default function App() {
       <Nav />
       <main>
         <Hero />
-        <Marquee />
+        <GlassMarquee />
         <Features />
         <Liquid />
-        <Drip className="drip--install" />
         <Install />
         <Playground />
-        <Drip className="drip--docs" />
-        <Docs />
       </main>
       <Footer />
     </>
