@@ -135,7 +135,10 @@ export const DEFAULT_CONFIG: LiquidGlassConfig = {
   specularStrength: 0.42,
   fresnelPower: 2.2,
 
-  hoverLighting: true,
+  // Off by default: a hover-triggered rim brightening reads as a broken
+  // hover state in practice — light shouldn't change because a cursor
+  // entered the element. Opt-in only.
+  hoverLighting: false,
   cursorTracking: false,
   parallax: false,
   inertia: true,

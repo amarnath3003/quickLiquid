@@ -58,6 +58,7 @@ const GLASS_BASE: Partial<LiquidGlassConfig> = {
   fresnelPower: 2.2,
   noiseOpacity: 0,
   noiseScale: 1,
+  hoverLighting: false,
 };
 
 const LIVE_CONTROLS: SliderControl[] = [
