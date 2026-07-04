@@ -390,7 +390,6 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
               ))}
             </div>
             <span className="pg-scene-note">
-              drag the lens ·{' '}
               {fps ? (
                 <>
                   <b>{fps.toFixed(0)}</b> fps

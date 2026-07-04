@@ -487,89 +487,65 @@ main {
   }
 }
 
-.motion-track {
+/* three rows of display type scrolling in alternating directions */
+.motion-rows {
   position: absolute;
-  top: 50%;
-  left: 0;
+  inset: 0;
   display: flex;
-  width: max-content;
-  white-space: nowrap;
-  font-family: var(--font);
-  font-size: 64px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.88);
-  animation: motion-marquee 18s linear infinite;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: flex-start;
 }
 
-.motion-track span {
+.motion-row {
+  flex: none;
+  width: max-content;
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.9);
+  will-change: transform;
+}
+
+.motion-row span {
   display: inline-flex;
   align-items: baseline;
 }
 
-.motion-track i {
+.motion-row i {
   font-style: normal;
-  color: rgba(125, 233, 255, 0.55);
-  margin: 0 26px;
+  color: rgba(125, 233, 255, 0.5);
+  margin: 0 0.42em;
 }
 
-@keyframes motion-marquee {
-  from {
-    transform: translate(0, -50%);
-  }
-  to {
-    transform: translate(-50%, -50%);
-  }
+/* depth — the middle line is the bright focus, outer lines recede */
+.motion-row:nth-child(1) { font-size: 46px; opacity: 0.5; }
+.motion-row:nth-child(2) { font-size: 72px; font-weight: 700; opacity: 0.92; }
+.motion-row:nth-child(3) { font-size: 40px; opacity: 0.44; }
+
+.motion-row--left {
+  animation-name: motion-scroll-l;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
-.motion-ball {
-  position: absolute;
-  border-radius: 50%;
+.motion-row--right {
+  animation-name: motion-scroll-r;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
-.motion-ball.mball-1 {
-  width: 54px;
-  height: 54px;
-  left: 5%;
-  top: 12%;
-  background: radial-gradient(circle at 32% 28%, #ff9dbd, #ff3b72);
-  animation: mball-1 7s ease-in-out infinite alternate;
+@keyframes motion-scroll-l {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-33.333%); }
 }
 
-.motion-ball.mball-2 {
-  width: 40px;
-  height: 40px;
-  left: 70%;
-  top: 70%;
-  background: radial-gradient(circle at 32% 28%, #9ed9ff, #2576ff);
-  animation: mball-2 5.5s ease-in-out infinite alternate;
-}
-
-.motion-ball.mball-3 {
-  width: 46px;
-  height: 46px;
-  left: 54%;
-  top: 8%;
-  background: radial-gradient(circle at 32% 28%, #a4ffd8, #25d98a);
-  animation: mball-3 6.5s ease-in-out infinite alternate;
-}
-
-@keyframes mball-1 {
-  to {
-    transform: translate(540px, 130px);
-  }
-}
-
-@keyframes mball-2 {
-  to {
-    transform: translate(-420px, -110px);
-  }
-}
-
-@keyframes mball-3 {
-  to {
-    transform: translate(-360px, 160px);
-  }
+@keyframes motion-scroll-r {
+  from { transform: translateX(-33.333%); }
+  to   { transform: translateX(0); }
 }
 
 .motion-grid {
@@ -578,34 +554,32 @@ main {
   background-image: linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
   background-size: 30px 30px;
+  mask-image: radial-gradient(130% 100% at 50% 50%, #000 55%, transparent 100%);
 }
 
-.motion-glass {
+/* the sweeping loupe — a full-width track that glides the lens across the type */
+.motion-loupe {
+  --lens-w: 300px;
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-  width: 250px;
-  height: 210px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 14px;
-  border-radius: 26px;
+  left: 0;
+  width: 100%;
+  height: 190px;
+  pointer-events: none;
+  animation: motion-sweep 11s ease-in-out infinite alternate;
 }
 
-.motion-glass--clear {
-  left: 11%;
+.motion-lens {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--lens-w);
+  height: 100%;
 }
 
-.motion-glass--frosted {
-  right: 11%;
-}
-
-.motion-label {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.82);
-  text-shadow: 0 1px 6px rgba(10, 14, 24, 0.5);
+@keyframes motion-sweep {
+  from { transform: translate(2%, -50%); }
+  to   { transform: translate(calc(100% - var(--lens-w) - 16px), -50%); }
 }
 
 /* ── nav ───────────────────────────────────────────────────────── */
@@ -1592,6 +1566,11 @@ main {
   color: var(--faint);
 }
 
+.pg-scene-note b {
+  color: var(--acc-a);
+  font-weight: 600;
+}
+
 .pg-stage {
   position: relative;
   height: 460px;
@@ -1991,16 +1970,32 @@ main {
   border-color: rgba(192, 67, 42, 0.4);
 }
 
+/* live export block */
+.pg-export-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.pg-export-head .tab-row {
+  margin-bottom: 0;
+}
+
+.pg-export-note {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
 /* controls column */
 
 .pg-controls {
   display: grid;
   gap: 14px;
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
-  padding-right: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+  align-content: start;
 }
 
 .pg-panel {
@@ -2019,7 +2014,7 @@ main {
   color: var(--coral);
   margin-bottom: 12px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 
@@ -2031,6 +2026,23 @@ main {
   color: var(--faint);
 }
 
+/* step-numbered panels — the guided 1 → 2 → deep flow */
+.pg-step-num {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: #071018;
+  background: linear-gradient(120deg, #bfeaff, #d3c9ff);
+}
+
 .preset-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2038,17 +2050,35 @@ main {
 }
 
 .preset-card {
+  position: relative;
   text-align: left;
   border: 1px solid var(--line);
   background: rgba(148, 163, 184, 0.06);
   border-radius: 12px;
-  padding: 10px 12px;
-  transition: border-color 0.15s, background 0.15s;
+  padding: 11px 13px;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
 
 .preset-card:hover {
   border-color: rgba(125, 233, 255, 0.5);
   background: rgba(109, 139, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.preset-card.is-active {
+  border-color: transparent;
+  background: linear-gradient(120deg, rgba(125, 233, 255, 0.18), rgba(192, 132, 252, 0.16));
+  box-shadow: inset 0 0 0 1px rgba(125, 233, 255, 0.55);
+}
+
+.preset-card.is-active::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--acc-a);
 }
 
 .preset-card b {
@@ -2062,10 +2092,172 @@ main {
   color: var(--faint);
 }
 
+/* step 2 — friendly essential sliders */
+.easy-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.easy {
+  padding: 9px 6px;
+  border-radius: 10px;
+}
+
+.easy-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.easy-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.easy-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--acc-a);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.easy-hint {
+  display: block;
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-top: 3px;
+}
+
+/* gradient-filled track that shows how far along each slider sits */
+.easy input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--acc-b) 0%,
+    var(--acc-c) var(--pct, 0%),
+    rgba(148, 163, 184, 0.16) var(--pct, 0%),
+    rgba(148, 163, 184, 0.16) 100%
+  );
+  cursor: pointer;
+}
+
+.easy input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--acc-b);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s;
+}
+
+.easy input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.easy input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--acc-b);
+}
+
+/* the deep-dive drawer — everything the reference has, collapsed by default */
+.pg-advanced {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.pg-advanced > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  padding: 15px 16px;
+  transition: background 0.15s;
+}
+
+.pg-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pg-advanced > summary:hover {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.pg-adv-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: 'SOFT' 100, 'WONK' 1;
+  font-size: 16px;
+  font-weight: 520;
+  color: var(--coral);
+}
+
+.pg-adv-sub {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.pg-adv-chevron {
+  margin-left: auto;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.pg-advanced[open] > summary .pg-adv-chevron {
+  transform: rotate(180deg);
+}
+
+.pg-advanced-body {
+  padding: 4px 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.pg-adv-group {
+  margin-top: 8px;
+}
+
+.pg-adv-group h4 {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.pg-adv-group:first-of-type h4 {
+  border-top: none;
+  padding-top: 4px;
+}
+
 .az-index {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  padding: 10px 0 6px;
 }
 
 .az-chip {
@@ -2570,21 +2762,17 @@ main {
     font-size: 60px;
   }
 
-  .motion-track {
-    font-size: 44px;
+  .motion-stage {
+    height: 250px;
   }
 
-  .motion-glass {
-    width: 170px;
-    height: 170px;
-  }
+  .motion-row:nth-child(1) { font-size: 32px; }
+  .motion-row:nth-child(2) { font-size: 50px; }
+  .motion-row:nth-child(3) { font-size: 28px; }
 
-  .motion-glass--clear {
-    left: 4%;
-  }
-
-  .motion-glass--frosted {
-    right: 4%;
+  .motion-loupe {
+    --lens-w: 210px;
+    height: 150px;
   }
 
   .pg-hud {
@@ -2602,12 +2790,14 @@ main {
   .pg-orb,
   .pg-bar,
   .goo-blob,
-  .motion-track,
-  .motion-ball,
   .motion-beam,
   .hero-badge__pulse {
     animation: none;
   }
+
+  /* The "motion behind glass" showcase is *about* motion, so it keeps
+     animating even under reduce-motion — it's the point of the section.
+     Everything else above is stilled. */
 
   html {
     scroll-behavior: auto;
