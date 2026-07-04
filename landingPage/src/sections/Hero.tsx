@@ -57,8 +57,8 @@ export function Hero() {
             <a className="btn btn--primary" href="#playground">
               Open the playground
             </a>
-            <a className="btn btn--ghost" href="/docs/">
-              Read the docs
+            <a className="link-more" href="/docs/">
+              Read the docs <span aria-hidden>→</span>
             </a>
           </div>
 
@@ -81,6 +81,7 @@ export function Hero() {
         <div className="hero-stage" ref={stageRef}>
           <div className="hero-scene" aria-hidden>
             <i className="hs-beam" />
+            <i className="hs-glow" />
             <i className="hs-grid" />
             <i className="hs-ball hb1" />
             <i className="hs-ball hb2" />

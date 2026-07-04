@@ -52,21 +52,18 @@ export function Features() {
           <i className="fg1" />
           <i className="fg2" />
           <i className="fg3" />
-          <i className="fg4" />
-          <i className="fg5" />
         </div>
         <div className="features-grid">
           {FEATURES.map((f, i) => (
             <LiquidGlass
               key={f.tag}
               className="feature-card"
-              liquidPress={{ scale: 0.97, squish: 0.01 }}
               animateIn={i * 80}
               config={{
                 material: 'thin',
                 appearance: 'dark',
                 borderRadius: 24,
-                tintOpacity: 0.07,
+                tintOpacity: 0.09,
                 specularStrength: 0.2,
                 edgeHighlight: 0.55,
               }}

@@ -18,6 +18,10 @@ export function GlassMarquee() {
   const row = [...WORDS, ...WORDS];
   return (
     <section className="motion" aria-label="Motion behind glass">
+      <div className="motion-head">
+        <span className="motion-head__label">motion behind glass</span>
+        <span className="motion-head__note">same scene, two materials — rendered live</span>
+      </div>
       <div className="motion-stage">
         <div className="motion-bg" aria-hidden>
           <i className="motion-beam" />

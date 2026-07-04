@@ -27,6 +27,17 @@ const SCENES: { id: SceneId; label: string; dark: boolean }[] = [
 
 const MATERIALS = ['none', 'clear', 'thin', 'regular', 'thick', 'ultra', 'adaptive'] as const;
 
+/* The handful of knobs that actually change the vibe — friendly names, no jargon.
+   Everything else lives in the collapsed “all properties” drawer below. */
+const ESSENTIALS: { key: keyof LiquidGlassConfig; label: string; hint: string }[] = [
+  { key: 'blur', label: 'Frost', hint: 'how milky the backdrop turns' },
+  { key: 'refractionStrength', label: 'Bend', hint: 'how hard the edges refract' },
+  { key: 'saturation', label: 'Color', hint: 'punch up colors through the glass' },
+  { key: 'tintOpacity', label: 'Tint', hint: 'strength of the material tint' },
+  { key: 'chromaticAberration', label: 'Prism', hint: 'rainbow split at the rim' },
+  { key: 'borderRadius', label: 'Roundness', hint: 'corner radius of the panel' },
+];
+
 interface Metrics {
   avgFrameTime: number;
   lastFrameTime: number;
@@ -51,6 +62,7 @@ export function Playground() {
   const [scene, setScene] = useState<SceneId>('aurora');
   const [material, setMaterial] = useState<string>('none');
   const [overrides, setOverrides] = useState<Partial<LiquidGlassConfig>>({});
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [flashKey, setFlashKey] = useState<string | null>(null);
   const [exportTab, setExportTab] = useState<'react' | 'vanilla'>('react');
@@ -58,6 +70,7 @@ export function Playground() {
   const lensRef = useRef<LiquidGlassRef>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
+  const advancedRef = useRef<HTMLDetailsElement>(null);
   const flashTimer = useRef<number>(0);
 
   /* Scene switcher is a real LiquidTabBar — the selection flows between tabs */
@@ -94,11 +107,14 @@ export function Playground() {
     [material, overrides, sceneDark],
   );
 
+  /* Any manual tweak means the config no longer matches the picked preset. */
   const setValue = useCallback((key: string, value: unknown) => {
+    setActivePreset(null);
     setOverrides(prev => ({ ...prev, [key]: value }) as Partial<LiquidGlassConfig>);
   }, []);
 
   const resetKey = useCallback((key: string) => {
+    setActivePreset(null);
     setOverrides(prev => {
       const next = { ...prev } as Record<string, unknown>;
       delete next[key];
@@ -107,24 +123,31 @@ export function Playground() {
   }, []);
 
   const resetAll = useCallback(() => {
+    setActivePreset(null);
     setOverrides({});
     setMaterial('none');
   }, []);
 
   const pickMaterial = useCallback((m: string) => {
+    setActivePreset(null);
     setMaterial(m);
     setOverrides({}); // presets read cleanly; tweak after picking
   }, []);
 
-  const applyCurated = useCallback((config: Partial<LiquidGlassConfig>) => {
+  const applyCurated = useCallback((preset: { name: string; config: Partial<LiquidGlassConfig> }) => {
+    setActivePreset(preset.name);
     setMaterial('none');
-    setOverrides({ ...config });
+    setOverrides({ ...preset.config });
   }, []);
 
   const jumpTo = useCallback((key: string) => {
-    controlsRef.current
-      ?.querySelector(`#ctl-${key}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (advancedRef.current) advancedRef.current.open = true;
+    // wait a frame so the freshly-opened drawer has laid out before scrolling
+    requestAnimationFrame(() => {
+      controlsRef.current
+        ?.querySelector(`#ctl-${key}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
     setFlashKey(key);
     window.clearTimeout(flashTimer.current);
     flashTimer.current = window.setTimeout(() => setFlashKey(null), 1400);
@@ -152,6 +175,7 @@ export function Playground() {
   }, []);
 
   const fps = metrics && metrics.avgFrameTime > 0 ? Math.min(120, 1000 / metrics.avgFrameTime) : null;
+  const isTouched = material !== 'none' || Object.keys(overrides).length > 0;
 
   const configLines = buildConfigLines(material, overrides);
   const reactExport = `import { LiquidGlass } from 'quick-liquid/react';
@@ -169,7 +193,48 @@ const engine = new LiquidGlassEngine(element, {
 ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a slider!'}
 });`;
 
-  /* ── control renderers ─────────────────────────────────────── */
+  /* ── essential slider (friendly, no API jargon) ────────────────── */
+
+  const renderEasy = (item: (typeof ESSENTIALS)[number]) => {
+    const key = item.key as string;
+    const def = PROPERTIES.find(p => p.key === item.key);
+    if (!def || def.control.kind !== 'slider') return null;
+    const spec = def.control;
+    const raw = effective[key];
+    const num = typeof raw === 'number' ? raw : 0;
+    const overridden = key in overrides;
+    const pct = ((num - spec.min) / (spec.max - spec.min)) * 100;
+
+    return (
+      <div className={`easy${flashKey === key ? ' ctl-flash' : ''}`} key={key} id={`ctl-easy-${key}`}>
+        <div className="easy-head">
+          <span className="easy-label">{item.label}</span>
+          <span className="easy-value">
+            {num.toFixed(spec.precision ?? 0)}
+            {spec.unit ?? ''}
+            {overridden && (
+              <button type="button" className="ctl-reset" onClick={() => resetKey(key)} title="Reset">
+                ↺
+              </button>
+            )}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={spec.min}
+          max={spec.max}
+          step={spec.step}
+          value={num}
+          onChange={e => setValue(key, parseFloat(e.target.value))}
+          aria-label={item.label}
+          style={{ ['--pct' as string]: `${pct}%` }}
+        />
+        <span className="easy-hint">{item.hint}</span>
+      </div>
+    );
+  };
+
+  /* ── full control renderer (advanced drawer) ───────────────────── */
 
   const renderControl = (def: PropertyDef) => {
     const key = def.key as string;
@@ -292,18 +357,18 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
     );
   };
 
-  /* ── layout ────────────────────────────────────────────────── */
+  /* ── layout ────────────────────────────────────────────────────── */
 
   return (
     <section className="section section--wide" id="playground">
       <div className="section-head">
-        <span className="section-kicker">the laboratory</span>
+        <span className="section-kicker">the playground</span>
         <h2 className="display">
-          Every property, <em className="ink">A&nbsp;to&nbsp;Z.</em>
+          Play with the <em className="ink">glass.</em>
         </h2>
         <p>
-          All {PROPERTIES.length} public config options are live below — drag the lens around, break
-          the physics, then copy the exact config into your app.
+          Pick a look, nudge a few sliders, grab the code. Every one of the {PROPERTIES.length}{' '}
+          properties is still here — tucked into “all properties” for when you want to go deep.
         </p>
       </div>
 
@@ -324,7 +389,16 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
                 </button>
               ))}
             </div>
-            <span className="pg-scene-note">appearance: {sceneDark ? `'dark'` : `'light'`}</span>
+            <span className="pg-scene-note">
+              drag the lens ·{' '}
+              {fps ? (
+                <>
+                  <b>{fps.toFixed(0)}</b> fps
+                </>
+              ) : (
+                'measuring…'
+              )}
+            </span>
           </div>
 
           <div className={`pg-stage scene-${scene}`} ref={stageRef}>
@@ -361,66 +435,48 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
                 </div>
               </div>
             </LiquidGlass>
-          </div>
 
-          <div className="pg-actions">
-            <button className="btn btn--small" onClick={() => lensRef.current?.jiggle(1.4)} type="button">
-              Jiggle
-            </button>
-            <button className="btn btn--small" onClick={replayEntrance} type="button">
-              Replay entrance
-            </button>
-            <button className="btn btn--small btn--danger" onClick={resetAll} type="button">
-              Reset all
-            </button>
-            <div className="pg-hud" aria-live="off">
-              {metrics ? (
-                <>
-                  {typeof metrics.mapGenMs === 'number' && metrics.mapGenMs > 0 && (
-                    <span>
-                      map gen <b>{metrics.mapGenMs.toFixed(1)}</b> ms
-                    </span>
-                  )}
-                  {typeof metrics.mapPixelsComputed === 'number' && metrics.mapPixelsComputed > 0 && (
-                    <span>
-                      <b>{(metrics.mapPixelsComputed / 1000).toFixed(0)}k</b> px traced
-                    </span>
-                  )}
-                  {fps && (
-                    <span>
-                      <b>{fps.toFixed(0)}</b> fps
-                    </span>
-                  )}
-                  <span>
-                    quality <b>{metrics.quality}</b>
-                  </span>
-                </>
-              ) : (
-                <span>measuring…</span>
-              )}
+            <div className="pg-stage-actions">
+              <button className="stage-btn" onClick={() => lensRef.current?.jiggle(1.4)} type="button" title="Jiggle">
+                Jiggle
+              </button>
+              <button className="stage-btn" onClick={replayEntrance} type="button" title="Replay entrance">
+                Replay
+              </button>
+              <button
+                className={`stage-btn stage-btn--reset${isTouched ? ' is-live' : ''}`}
+                onClick={resetAll}
+                type="button"
+                title="Reset everything"
+              >
+                Reset
+              </button>
             </div>
           </div>
 
           <div className="pg-export">
-            <div className="tab-row" role="tablist" aria-label="Export format">
-              <button
-                role="tab"
-                aria-selected={exportTab === 'react'}
-                className={`tab-chip${exportTab === 'react' ? ' is-active' : ''}`}
-                onClick={() => setExportTab('react')}
-                type="button"
-              >
-                ⚛️ React
-              </button>
-              <button
-                role="tab"
-                aria-selected={exportTab === 'vanilla'}
-                className={`tab-chip${exportTab === 'vanilla' ? ' is-active' : ''}`}
-                onClick={() => setExportTab('vanilla')}
-                type="button"
-              >
-                ⚡ Vanilla
-              </button>
+            <div className="pg-export-head">
+              <div className="tab-row" role="tablist" aria-label="Export format">
+                <button
+                  role="tab"
+                  aria-selected={exportTab === 'react'}
+                  className={`tab-chip${exportTab === 'react' ? ' is-active' : ''}`}
+                  onClick={() => setExportTab('react')}
+                  type="button"
+                >
+                  ⚛️ React
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={exportTab === 'vanilla'}
+                  className={`tab-chip${exportTab === 'vanilla' ? ' is-active' : ''}`}
+                  onClick={() => setExportTab('vanilla')}
+                  type="button"
+                >
+                  ⚡ Vanilla
+                </button>
+              </div>
+              <span className="pg-export-note">updates as you tweak →</span>
             </div>
             {exportTab === 'react' ? (
               <CodeBlock code={reactExport} lang="tsx" title="your config — live" />
@@ -431,11 +487,19 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
         </div>
 
         <aside className="pg-controls" ref={controlsRef}>
-          <div className="pg-panel">
-            <h3>Curated presets</h3>
+          <div className="pg-panel pg-step">
+            <h3>
+              <span className="pg-step-num">1</span>
+              Pick a look
+            </h3>
             <div className="preset-grid">
               {CURATED_PRESETS.map(p => (
-                <button key={p.name} type="button" className="preset-card" onClick={() => applyCurated(p.config)}>
+                <button
+                  key={p.name}
+                  type="button"
+                  className={`preset-card${activePreset === p.name ? ' is-active' : ''}`}
+                  onClick={() => applyCurated(p)}
+                >
                   <b>{p.name}</b>
                   <span>{p.note}</span>
                 </button>
@@ -443,25 +507,40 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
             </div>
           </div>
 
-          <div className="pg-panel">
+          <div className="pg-panel pg-step">
             <h3>
-              A–Z index <small>{PROPERTIES_AZ.length} properties</small>
+              <span className="pg-step-num">2</span>
+              Fine-tune the feel
             </h3>
-            <div className="az-index">
-              {PROPERTIES_AZ.map(p => (
-                <button key={p.key} type="button" className="az-chip" onClick={() => jumpTo(p.key as string)}>
-                  {p.key}
-                </button>
-              ))}
-            </div>
+            <div className="easy-grid">{ESSENTIALS.map(renderEasy)}</div>
           </div>
 
-          {GROUP_ORDER.map(group => (
-            <div className="pg-panel" key={group}>
-              <h3>{group}</h3>
-              {PROPERTIES.filter(p => p.group === group).map(renderControl)}
+          <details className="pg-advanced" ref={advancedRef}>
+            <summary>
+              <span className="pg-adv-title">All {PROPERTIES.length} properties</span>
+              <span className="pg-adv-sub">material, lighting, dispersion, texture…</span>
+              <span className="pg-adv-chevron" aria-hidden>
+                ⌄
+              </span>
+            </summary>
+
+            <div className="pg-advanced-body">
+              <div className="az-index">
+                {PROPERTIES_AZ.map(p => (
+                  <button key={p.key} type="button" className="az-chip" onClick={() => jumpTo(p.key as string)}>
+                    {p.key}
+                  </button>
+                ))}
+              </div>
+
+              {GROUP_ORDER.map(group => (
+                <div className="pg-adv-group" key={group}>
+                  <h4>{group}</h4>
+                  {PROPERTIES.filter(p => p.group === group).map(renderControl)}
+                </div>
+              ))}
             </div>
-          ))}
+          </details>
         </aside>
       </div>
     </section>

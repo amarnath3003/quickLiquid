@@ -5,7 +5,7 @@ import type { LiquidGlassConfig } from 'quick-liquid';
 import { useLiquidTabBar } from '../components/useLiquidTabBar';
 import { Droplet } from '../components/Droplet';
 
-const TAB_LABELS = ['home', 'search', 'library', 'profile'];
+const TAB_LABELS = ['home', 'search', 'library'];
 
 const GLASS: Partial<LiquidGlassConfig> = {
   appearance: 'dark',
@@ -27,7 +27,7 @@ export function Liquid() {
   };
 
   return (
-    <section className="section section--wide" id="liquid">
+    <section className="section" id="liquid">
       <div className="section-head">
         <span className="section-kicker">the liquid part</span>
         <h2 className="display">
@@ -39,16 +39,11 @@ export function Liquid() {
         </p>
       </div>
 
-      <div className="liquid-stage">
-        <div className="liquid-scenery" aria-hidden>
-          <i className="ls-orb o1" />
-          <i className="ls-orb o2" />
-          <i className="ls-bar b1" />
-        </div>
-
-        <div className="liquid-demos">
-          <div className="liquid-demo">
-            <span className="liquid-demo__tag">LiquidTabBar</span>
+      <div className="liquid-grid">
+        <div className="liquid-cell">
+          <div className="liquid-cell__stage lc-a" aria-label="LiquidTabBar demo">
+            <i className="lc-orb" aria-hidden />
+            <i className="lc-bar" aria-hidden />
             <LiquidGlass className="lt-bar" config={{ ...GLASS, borderRadius: 999 }}>
               <div className="lt-bar__inner" ref={containerRef}>
                 {TAB_LABELS.map((label, i) => (
@@ -63,14 +58,18 @@ export function Liquid() {
                 ))}
               </div>
             </LiquidGlass>
-            <p className="liquid-demo__caption">
-              The selection stretches across the gap, then snaps to the new tab — a spring on
-              position, a spring on width.
-            </p>
           </div>
+          <div className="liquid-cell__info">
+            <code>LiquidTabBar</code>
+            <p>The selection stretches across the gap, then snaps to the new tab — a spring on
+            position, a spring on width.</p>
+          </div>
+        </div>
 
-          <div className="liquid-demo">
-            <span className="liquid-demo__tag">liquidPress</span>
+        <div className="liquid-cell">
+          <div className="liquid-cell__stage lc-b" aria-label="liquidPress demo">
+            <i className="lc-orb" aria-hidden />
+            <i className="lc-bar" aria-hidden />
             <div className="lt-buttons">
               <LiquidGlass
                 className="lt-btn"
@@ -82,42 +81,39 @@ export function Liquid() {
               </LiquidGlass>
               <LiquidGlass
                 className="lt-btn"
-                config={{ ...GLASS, borderRadius: 16 }}
+                config={{ ...GLASS, borderRadius: 14 }}
                 liquidPress={{ scale: 0.86, squish: 0.05 }}
                 animateIn={110}
               >
                 squishy
               </LiquidGlass>
-              <LiquidGlass
-                className="lt-btn"
-                config={{ ...GLASS, borderRadius: 999, chromaticAberration: 0.9, refractionStrength: 28 }}
-                liquidPress={{ scale: 0.95, squish: 0.015 }}
-                animateIn={220}
-              >
-                prismatic
-              </LiquidGlass>
             </div>
-            <p className="liquid-demo__caption">
-              Hold one down — squash, stretch and a spring release. No keyframes written.
-            </p>
           </div>
+          <div className="liquid-cell__info">
+            <code>liquidPress</code>
+            <p>Hold one down — squash, stretch and a spring release. No keyframes written.</p>
+          </div>
+        </div>
 
-          <div className="liquid-demo">
-            <span className="liquid-demo__tag">jiggle()</span>
-            <LiquidGlass ref={jiggleRef} className="lt-mascot" config={{ ...GLASS, borderRadius: 28 }}>
+        <div className="liquid-cell">
+          <div className="liquid-cell__stage lc-c" aria-label="jiggle demo">
+            <i className="lc-orb" aria-hidden />
+            <i className="lc-bar" aria-hidden />
+            <LiquidGlass ref={jiggleRef} className="lt-mascot" config={{ ...GLASS, borderRadius: 24 }}>
               <button
                 type="button"
                 className="lt-mascot__hit"
                 onClick={() => jiggleRef.current?.jiggle(1.5)}
                 aria-label="Jiggle the panel"
               >
-                <Droplet size={88} poke={false} />
+                <Droplet size={64} poke={false} />
                 <span>poke it</span>
               </button>
             </LiquidGlass>
-            <p className="liquid-demo__caption">
-              The whole panel wobbles with the engine’s squash-and-stretch curve. One call.
-            </p>
+          </div>
+          <div className="liquid-cell__info">
+            <code>jiggle()</code>
+            <p>The whole panel wobbles with the engine’s squash-and-stretch curve. One call.</p>
           </div>
         </div>
       </div>
