@@ -6,7 +6,7 @@
  */
 
 // Core glass engine
-export { LiquidGlassEngine, DEFAULT_CONFIG } from './core/engine';
+export { LiquidGlassEngine, DEFAULT_CONFIG, MATERIAL_PRESETS } from './core/engine';
 export type { LiquidGlassConfig } from './core/engine';
 
 // Liquid animations

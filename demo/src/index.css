@@ -384,13 +384,13 @@ body {
    the Snell's-law bezel warp is unmistakable.
    ═══════════════════════════════════════════════════════ */
 .playground-demo { text-align: center; width: min(960px, 94vw); }
-.playground-demo h3, .materials-demo h3 {
+.playground-demo h3, .materials-demo h3, .motion-demo h3 {
   font-size: 1.25rem;
   font-weight: 600;
   color: rgba(17,24,39,0.82);
   letter-spacing: -0.02em;
 }
-.playground-demo p, .materials-demo p {
+.playground-demo p, .materials-demo p, .motion-demo p {
   font-size: 0.85rem;
   color: rgba(17,24,39,0.46);
   margin: 6px 0 18px;
@@ -461,6 +461,129 @@ body {
   z-index: 5;
 }
 .playground-lens:active { cursor: grabbing; }
+
+/* ═══════════════════════════════════════════════════════
+   MOTION BEHIND GLASS
+   Continuously animated backdrop under two fixed glass
+   panels — shows the lens re-processing moving content
+   (warp at the bezel, blur, dispersion) every frame.
+   ═══════════════════════════════════════════════════════ */
+.motion-demo { text-align: center; width: min(960px, 94vw); }
+
+.motion-stage {
+  position: relative;
+  height: 320px;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(20,28,45,0.16);
+}
+
+.motion-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, #131b30 0%, #0f1424 45%, #1d1330 80%, #2a1226 100%);
+}
+
+/* Rotating color beam — broad hue sweep the glass has to keep up with */
+.motion-beam {
+  position: absolute;
+  right: -130px;
+  top: -130px;
+  width: 430px;
+  height: 430px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #2576ff, #8d63ff, #ff4f9f, #ffb340, #25d98a, #2576ff);
+  filter: blur(42px);
+  opacity: 0.55;
+  animation: motionBeamSpin 12s linear infinite;
+}
+@keyframes motionBeamSpin { to { transform: rotate(360deg); } }
+
+/* Endless marquee — bold type sliding under the bezel shows the warp */
+.motion-marquee {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: flex;
+  width: max-content;
+  white-space: nowrap;
+  font-size: 72px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.88);
+  animation: motionMarquee 16s linear infinite;
+}
+@keyframes motionMarquee {
+  from { transform: translate(0, -50%); }
+  to   { transform: translate(-50%, -50%); }
+}
+
+/* Drifting orbs on different paths & tempos */
+.motion-ball { position: absolute; border-radius: 50%; }
+.motion-ball.mb-1 {
+  width: 58px; height: 58px; left: 4%; top: 12%;
+  background: radial-gradient(circle at 32% 28%, #ff9dbd, #ff3b72);
+  animation: mbDrift1 7s ease-in-out infinite alternate;
+}
+.motion-ball.mb-2 {
+  width: 42px; height: 42px; left: 70%; top: 68%;
+  background: radial-gradient(circle at 32% 28%, #9ed9ff, #2576ff);
+  animation: mbDrift2 5.5s ease-in-out infinite alternate;
+}
+.motion-ball.mb-3 {
+  width: 34px; height: 34px; left: 38%; top: 76%;
+  background: radial-gradient(circle at 32% 28%, #ffe29d, #ffb340);
+  animation: mbDrift3 8.5s ease-in-out infinite alternate;
+}
+.motion-ball.mb-4 {
+  width: 48px; height: 48px; left: 55%; top: 8%;
+  background: radial-gradient(circle at 32% 28%, #a4ffd8, #25d98a);
+  animation: mbDrift4 6.5s ease-in-out infinite alternate;
+}
+@keyframes mbDrift1 { to { transform: translate(560px, 140px); } }
+@keyframes mbDrift2 { to { transform: translate(-420px, -120px); } }
+@keyframes mbDrift3 { to { transform: translate(380px, -150px); } }
+@keyframes mbDrift4 { to { transform: translate(-360px, 170px); } }
+
+/* Static fine grid — a fixed reference so the warp reads even between orbs */
+.motion-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* The fixed glass panels the motion flows underneath */
+.motion-glass {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 250px;
+  height: 210px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 14px;
+  z-index: 5;
+}
+.motion-glass-clear { left: 12%; }
+.motion-glass-frosted { right: 12%; }
+
+.motion-label {
+  font-family: 'SF Mono', monospace;
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.82);
+  text-shadow: 0 1px 6px rgba(10,14,24,0.5);
+}
+
+@media (max-width: 760px) {
+  .motion-glass { width: 180px; height: 170px; }
+  .motion-glass-clear { left: 6%; }
+  .motion-glass-frosted { right: 6%; }
+  .motion-marquee { font-size: 52px; }
+}
 
 /* ═══════════════════════════════════════════════════════
    MATERIALS STRIP
@@ -659,14 +782,18 @@ body.dark-scene {
 .dark-scene .section-header h2,
 .dark-scene .playground-demo h3,
 .dark-scene .materials-demo h3,
+.dark-scene .motion-demo h3,
 .dark-scene .merge-demo h3,
 .dark-scene .spring-buttons-demo h3 { color: rgba(233,239,251,0.86); }
 
 .dark-scene .section-header p,
 .dark-scene .playground-demo p,
 .dark-scene .materials-demo p,
+.dark-scene .motion-demo p,
 .dark-scene .merge-demo p,
 .dark-scene .spring-buttons-demo p { color: rgba(233,239,251,0.44); }
+
+.dark-scene .motion-stage { box-shadow: 0 18px 50px rgba(0,0,0,0.5); }
 
 .dark-scene .tab-item { color: rgba(233,239,251,0.5); }
 .dark-scene .tab-item.active { color: rgba(240,245,255,0.94); }

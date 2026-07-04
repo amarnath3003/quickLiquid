@@ -238,6 +238,37 @@ function App() {
           </div>
         </div>
 
+        <div className="motion-demo">
+          <h3>Motion Behind Glass</h3>
+          <p>The backdrop is alive — watch the lens re-process everything that moves beneath it, every frame.</p>
+          <div className="motion-stage">
+            <div className="motion-bg" aria-hidden="true">
+              <div className="motion-beam" />
+              <div className="motion-marquee">
+                <span>LIQUID GLASS BENDS LIGHT · REFRACTS MOTION · </span>
+                <span>LIQUID GLASS BENDS LIGHT · REFRACTS MOTION · </span>
+              </div>
+              <div className="motion-ball mb-1" />
+              <div className="motion-ball mb-2" />
+              <div className="motion-ball mb-3" />
+              <div className="motion-ball mb-4" />
+              <div className="motion-grid" />
+            </div>
+            <LiquidGlass
+              config={getConfig({ borderRadius: 26, blur: 1.5, refractionStrength: 32, tintOpacity: 0.015, thickness: 30, bezelWidth: 40, appearance: 'dark' })}
+              className="motion-glass motion-glass-clear"
+            >
+              <span className="motion-label">clear — pure lens</span>
+            </LiquidGlass>
+            <LiquidGlass
+              config={getConfig({ borderRadius: 26, blur: 16, tintOpacity: 0.09, refractionStrength: 16, appearance: 'dark' })}
+              className="motion-glass motion-glass-frosted"
+            >
+              <span className="motion-label">frosted — blur + tint</span>
+            </LiquidGlass>
+          </div>
+        </div>
+
         <div className="materials-demo">
           <h3>Materials</h3>
           <p>Apple material presets — from water-clear to heavy frost.</p>
