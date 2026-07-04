@@ -25,8 +25,17 @@ The output in `dist/` is fully static — deploy it to any static host
 
 - `src/data/properties.ts` — single source of truth for every config property;
   drives both the playground controls and the docs API table so they can't drift.
-- `src/sections/` — Nav, Hero, Features, Install, Playground, Docs, Footer.
-- `src/components/CodeBlock.tsx` — copyable code blocks with lightweight highlighting.
+- `src/sections/` — Nav, Hero (draggable metaball droplets), Features (glass cards),
+  Liquid (LiquidTabBar + liquidPress + jiggle demos), Install, Playground, Docs, Footer.
+- `src/components/` — `CodeBlock` (copyable code), `Droplet` (the mascot),
+  `Goo` (ambient metaball background), `Marquee`, `Drip` (section dividers).
+
+## Design language
+
+- Type: **Fraunces** (display, soft/wonky axes + italics), **Outfit** (UI),
+  **JetBrains Mono** (code) — self-hosted via fontsource, bundled at build time.
+- The page dogfoods the library everywhere: the nav, feature cards, hero droplets,
+  tab bars and buttons are all real `LiquidGlass` engines sharing displacement maps.
 
 > Note: full refraction (`backdrop-filter: url()`) renders in Chromium;
 > other engines fall back to frost + lighting, as documented on the page.

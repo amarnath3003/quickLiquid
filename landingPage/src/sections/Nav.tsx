@@ -1,7 +1,9 @@
 import { LiquidGlass } from 'quick-liquid/react';
+import { Droplet } from '../components/Droplet';
 
 const LINKS = [
-  { href: '#features', label: 'Features' },
+  { href: '#features', label: 'Optics' },
+  { href: '#liquid', label: 'Motion' },
   { href: '#install', label: 'Install' },
   { href: '#playground', label: 'Playground' },
   { href: '#docs', label: 'Docs' },
@@ -15,7 +17,7 @@ export function Nav() {
         config={{
           material: 'thin',
           appearance: 'dark',
-          borderRadius: 22,
+          borderRadius: 999,
           blur: 10,
           tintOpacity: 0.08,
           refractionStrength: 14,
@@ -28,10 +30,10 @@ export function Nav() {
       >
         <nav className="nav-inner" aria-label="Main">
           <a className="nav-brand" href="#top">
-            <span className="nav-drop" aria-hidden>
-              💧
+            <Droplet size={26} poke={false} className="nav-brand__drop" />
+            <span className="wordmark">
+              quick<em>liquid</em>
             </span>
-            QuickLiquid
           </a>
           <div className="nav-links">
             {LINKS.map(l => (

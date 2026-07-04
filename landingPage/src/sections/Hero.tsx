@@ -1,23 +1,53 @@
 import { useEffect, useRef } from 'react';
 import { LiquidGlass } from 'quick-liquid/react';
-import { LiquidGesture } from 'quick-liquid';
+import { LiquidGroup, LiquidGesture } from 'quick-liquid';
 import { useCopy } from '../components/CodeBlock';
+import { Droplet } from '../components/Droplet';
 
 export function Hero() {
   const [copied, copy] = useCopy();
-  const lensRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
-  // Make the hero card a physical object: drag it, it springs home.
+  /* The hero moment: three real glass droplets in a LiquidGroup.
+     Drag one into another — they merge like water, then spring home. */
   useEffect(() => {
-    const host = lensRef.current?.querySelector<HTMLElement>('.hero-card');
-    if (!host) return;
-    const gesture = new LiquidGesture(host, {
-      pressScale: 1.03,
-      pressSquish: 0,
-      wobbleOnPress: false,
-      releaseSpring: 'bouncy',
+    const container = stageRef.current;
+    if (!container) return;
+    const blobs = container.querySelectorAll<HTMLElement>('.merge-blob');
+    if (blobs.length < 2) return;
+
+    const group = new LiquidGroup(container, {
+      mergeDistance: 58,
+      blendRadius: 30,
+      bridgeOpacity: 0.22,
+      resolution: 3,
     });
-    return () => gesture.destroy();
+    blobs.forEach(blob => group.add(blob));
+
+    const gestures = [...blobs].map(blob => {
+      const gesture = new LiquidGesture(blob, {
+        pressScale: 1.05,
+        pressSquish: 0,
+        wobbleOnPress: false,
+        releaseSpring: 'bouncy',
+      });
+      gesture.onDrag(() => group.updatePositions());
+      // keep the bridges tracking while the release spring settles
+      gesture.onRelease(() => {
+        const t0 = performance.now();
+        const tick = () => {
+          group.updatePositions();
+          if (performance.now() - t0 < 1800) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      return gesture;
+    });
+
+    return () => {
+      gestures.forEach(g => g.destroy());
+      group.destroy();
+    };
   }, []);
 
   return (
@@ -32,17 +62,17 @@ export function Hero() {
       <div className="hero-inner">
         <div className="hero-copy">
           <span className="hero-badge">
-            <span className="hero-badge__pulse" aria-hidden /> v0.1.0 · MIT · React 18+ &amp; Vanilla JS
+            <span className="hero-badge__pulse" aria-hidden /> v0.1.0 · MIT · React 18+ &amp; vanilla JS
           </span>
-          <h1>
-            Liquid glass for the web.
+          <h1 className="display">
+            Glass that behaves
             <br />
-            <span className="grad-text">Physics included.</span>
+            <em className="ink">like water.</em>
           </h1>
           <p className="hero-sub">
-            QuickLiquid replicates Apple’s liquid-glass material with <strong>vector Snell’s-law
-            refraction</strong>, two-lobe rim lighting and chromatic dispersion — ray-traced into a
-            displacement map in under 5&nbsp;ms and rendered at 60+&nbsp;FPS.
+            quickliquid ray-traces Apple’s liquid-glass material straight into the browser — vector
+            Snell’s-law refraction, two-lobe rim light, chromatic dispersion. No shaders, no canvas,
+            no WebGL. <strong>Just physics, at 60&nbsp;fps.</strong>
           </p>
 
           <div className="hero-actions">
@@ -54,17 +84,17 @@ export function Hero() {
               <span className="install-pill__copy">{copied ? '✓' : '⧉'}</span>
             </button>
             <a className="btn btn--primary" href="#playground">
-              Try the playground
+              Open the playground
             </a>
             <a className="btn btn--ghost" href="#docs">
-              Read the docs
+              Skim the docs
             </a>
           </div>
 
           <ul className="hero-stats">
             <li>
               <b>0.3–5 ms</b>
-              <span>map generation per unique geometry</span>
+              <span>to ray-trace a map for a new geometry</span>
             </li>
             <li>
               <b>1 map</b>
@@ -72,64 +102,49 @@ export function Hero() {
             </li>
             <li>
               <b>≈ 0.1 px</b>
-              <span>quantization error — the 8-bit minimum</span>
+              <span>quantization error — the 8-bit floor</span>
             </li>
           </ul>
         </div>
 
-        <div className="hero-stage" ref={lensRef}>
+        <div className="hero-stage" ref={stageRef}>
           <div className="hero-scene" aria-hidden>
             <i className="scene-bar sb1" />
             <i className="scene-bar sb2" />
             <i className="scene-bar sb3" />
-            <i className="scene-bar sb4" />
             <i className="scene-dot sd1" />
             <i className="scene-dot sd2" />
-            <span className="scene-word">refraction</span>
+            <span className="scene-word">merge</span>
           </div>
 
-          <LiquidGlass
-            className="hero-card"
-            animateIn={250}
-            config={{
-              blur: 2,
-              saturation: 1.55,
-              refractionStrength: 30,
-              bezelWidth: 38,
-              thickness: 26,
-              chromaticAberration: 0.45,
-              borderRadius: 30,
-              appearance: 'dark',
-              edgeHighlight: 0.95,
-            }}
-          >
-            <div className="hero-card__body">
-              <div className="hero-card__row">
-                <span className="hero-card__icon" aria-hidden>
-                  💧
-                </span>
-                <div>
-                  <b>Liquid Glass</b>
-                  <small>drag me — real refraction underneath</small>
-                </div>
-              </div>
-              <div className="hero-card__meter" aria-hidden>
-                <i style={{ width: '78%' }} />
-              </div>
-              <div className="hero-card__chips" aria-hidden>
-                <span>Snell</span>
-                <span>Fresnel</span>
-                <span>60 FPS</span>
-              </div>
-            </div>
-          </LiquidGlass>
+          {(['b1', 'b2', 'b3'] as const).map((k, i) => (
+            <LiquidGlass
+              key={k}
+              className={`merge-blob mb-${k}`}
+              animateIn={200 + i * 140}
+              config={{
+                borderRadius: 999,
+                blur: 1.5,
+                refractionStrength: 20,
+                bezelWidth: 18,
+                thickness: 16,
+                chromaticAberration: 0.4,
+                appearance: 'light',
+                tintOpacity: 0.03,
+                edgeHighlight: 0.95,
+              }}
+            >
+              <span className="merge-blob__face" aria-hidden>
+                <Droplet size={30} poke={false} />
+              </span>
+            </LiquidGlass>
+          ))}
+
+          <div className="hero-stage__hint">
+            <code>LiquidGroup</code> — drag a droplet into another. Surface tension included.
+          </div>
         </div>
       </div>
-
-      <p className="hero-note">
-        Full refraction renders in Chromium (<code>backdrop-filter: url()</code>); Safari &amp; Firefox
-        gracefully fall back to frost + lighting.
-      </p>
     </header>
   );
 }

@@ -50,8 +50,10 @@ export function Install() {
   return (
     <section className="section" id="install">
       <div className="section-head">
-        <span className="section-kicker">Get started</span>
-        <h2>Install once, glass everything.</h2>
+        <span className="section-kicker">get started</span>
+        <h2 className="display">
+          <em className="ink">Pour it</em> into your app.
+        </h2>
         <p>
           Zero runtime dependencies. React 18+ is an optional peer dependency — the core engine is
           plain TypeScript and works on any element.

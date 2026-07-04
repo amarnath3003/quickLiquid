@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LiquidGlass } from 'quick-liquid/react';
 import type { LiquidGlassRef } from 'quick-liquid/react';
-import { DEFAULT_CONFIG, MATERIAL_PRESETS, LiquidGesture } from 'quick-liquid';
+import { DEFAULT_CONFIG, MATERIAL_PRESETS, LiquidGesture, LiquidTabBar } from 'quick-liquid';
 import type { LiquidGlassConfig } from 'quick-liquid';
+import { Droplet } from '../components/Droplet';
 import {
   PROPERTIES,
   PROPERTIES_AZ,
@@ -17,10 +18,10 @@ import { CodeBlock } from '../components/CodeBlock';
 type SceneId = 'aurora' | 'sunset' | 'mesh' | 'night';
 
 const SCENES: { id: SceneId; label: string; dark: boolean }[] = [
-  { id: 'aurora', label: '🫧 Aurora', dark: false },
-  { id: 'sunset', label: '🌇 Sunset', dark: false },
-  { id: 'mesh', label: '📐 Mesh', dark: false },
-  { id: 'night', label: '🌙 Night', dark: true },
+  { id: 'aurora', label: 'aurora', dark: false },
+  { id: 'sunset', label: 'sunset', dark: false },
+  { id: 'mesh', label: 'mesh', dark: false },
+  { id: 'night', label: 'night', dark: true },
 ];
 
 const MATERIALS = ['none', 'clear', 'thin', 'regular', 'thick', 'ultra', 'adaptive'] as const;
@@ -57,6 +58,26 @@ export function Playground() {
   const stageRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const flashTimer = useRef<number>(0);
+  const sceneBarRef = useRef<HTMLDivElement>(null);
+  const sceneCtrl = useRef<LiquidTabBar | null>(null);
+
+  /* Scene switcher is a real LiquidTabBar — the selection flows between tabs */
+  useEffect(() => {
+    if (!sceneBarRef.current) return;
+    const items = sceneBarRef.current.querySelectorAll<HTMLElement>('.lt-item');
+    if (items.length === 0) return;
+    const bar = new LiquidTabBar(sceneBarRef.current, [...items], { spring: 'default' });
+    sceneCtrl.current = bar;
+    return () => {
+      bar.destroy();
+      sceneCtrl.current = null;
+    };
+  }, []);
+
+  const pickScene = useCallback((index: number) => {
+    setScene(SCENES[index].id);
+    sceneCtrl.current?.select(index);
+  }, []);
 
   const sceneDark = SCENES.find(s => s.id === scene)!.dark;
 
@@ -284,9 +305,9 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
   return (
     <section className="section section--wide" id="playground">
       <div className="section-head">
-        <span className="section-kicker">Playground</span>
-        <h2>
-          Every glass property, <span className="grad-text">A to Z.</span>
+        <span className="section-kicker">the laboratory</span>
+        <h2 className="display">
+          Every property, <em className="ink">A&nbsp;to&nbsp;Z.</em>
         </h2>
         <p>
           All {PROPERTIES.length} public config options are live below — drag the lens around, break
@@ -296,19 +317,21 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
 
       <div className="pg">
         <div className="pg-left">
-          <div className="pg-scenes" role="tablist" aria-label="Backdrop scene">
-            {SCENES.map(s => (
-              <button
-                key={s.id}
-                role="tab"
-                aria-selected={scene === s.id}
-                className={`tab-chip${scene === s.id ? ' is-active' : ''}`}
-                onClick={() => setScene(s.id)}
-                type="button"
-              >
-                {s.label}
-              </button>
-            ))}
+          <div className="pg-scenes">
+            <div className="scene-tabs" role="tablist" aria-label="Backdrop scene" ref={sceneBarRef}>
+              {SCENES.map((s, i) => (
+                <button
+                  key={s.id}
+                  role="tab"
+                  aria-selected={scene === s.id}
+                  className={`lt-item${scene === s.id ? ' is-active' : ''}`}
+                  onClick={() => pickScene(i)}
+                  type="button"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
             <span className="pg-scene-note">appearance: {sceneDark ? `'dark'` : `'light'`}</span>
           </div>
 
@@ -333,10 +356,10 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
               <div className="pg-lens__body">
                 <div className="pg-lens__row">
                   <span className="pg-lens__icon" aria-hidden>
-                    💧
+                    <Droplet size={34} poke={false} />
                   </span>
                   <div>
-                    <b>Test Lens</b>
+                    <b>the test lens</b>
                     <small>drag me over the scene</small>
                   </div>
                 </div>

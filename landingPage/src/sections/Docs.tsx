@@ -62,8 +62,10 @@ export function Docs() {
   return (
     <section className="section" id="docs">
       <div className="section-head">
-        <span className="section-kicker">Documentation</span>
-        <h2>The full reference, on one page.</h2>
+        <span className="section-kicker">documentation</span>
+        <h2 className="display">
+          The whole reference, <em className="ink">one long pour.</em>
+        </h2>
         <p>
           Everything ships typed. <code>LiquidGlassConfig</code> below is the single object you pass
           to the React component or the vanilla engine.
@@ -246,7 +248,7 @@ export function Docs() {
       </div>
 
       <div className="docs-block docs-callout">
-        <h3>⚠️ Browser notes — read before shipping</h3>
+        <h3>Field notes — read before shipping</h3>
         <ul>
           <li>
             The refraction path (<code>backdrop-filter: url()</code>) renders in <b>Chromium</b>.
