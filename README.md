@@ -129,6 +129,8 @@ Configure the engine properties for the perfect balance of visual depth and rend
 | `specularStrength` | `number` | `0.42` | Soft bezel sheen intensity. |
 | `fresnelPower` | `number` | `2.2` | Rim lobe tightness (1 wide … 5 tight). |
 | `tint` / `tintOpacity` | `string` / `number` | `'255,255,255'` / `0.04` | Material tint. Keep ≤ 0.05 for clear glass. |
+| `appearance` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Adapts glass to the backdrop **behind it**: dark swaps the default tint to deep smoke, derives rim/sheen intensity from backdrop luminance, and replaces the drop shadow with an ambient glow. `'auto'` follows `prefers-color-scheme` live. Pass `'dark'` explicitly for glass over a dark panel inside a light page. |
+| `backdropLuminance` | `number` | — | Measured backdrop luminance 0 (black) … 1 (white). Overrides the appearance-implied value for rim/sheen derivation — feed it from your own wallpaper sampling. |
 | `dynamicLighting` | `boolean`| `false` | Rim lobes follow the cursor. |
 | `quality` | `'high' \| 'medium' \| 'low'` | `'high'` | Displacement map resolution cap (1024/384/128 px). |
 

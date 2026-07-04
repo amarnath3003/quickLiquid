@@ -234,6 +234,20 @@ body {
   line-height: 1.6;
 }
 
+.scene-toggle {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 100;
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(17,24,39,0.78);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Controls Section */
 .controls-section {
   display: flex;
@@ -589,6 +603,121 @@ body {
 }
 
 .merge-blob:active { cursor: grabbing; }
+
+/* ═══════════════════════════════════════════════════════
+   DARK SCENE — toggled via body.dark-scene.
+   The wallpaper flips to a deep-navy night scene; glass
+   components receive appearance:'dark' from the demo app
+   (dark smoke tint, luminance-derived rim, shadow→glow).
+   ═══════════════════════════════════════════════════════ */
+body.dark-scene {
+  background: #06080f;
+  color: #e8ecf5;
+  color-scheme: dark;
+}
+
+.dark-scene .scene-background {
+  background:
+    linear-gradient(115deg, rgba(36,112,255,0.22) 0 12%, transparent 12% 100%),
+    linear-gradient(137deg, transparent 0 58%, rgba(255,86,122,0.17) 58% 68%, transparent 68% 100%),
+    linear-gradient(26deg, transparent 0 18%, rgba(27,196,142,0.15) 18% 28%, transparent 28% 100%),
+    linear-gradient(180deg, #0c111d 0%, #090d17 56%, #06080f 100%);
+}
+
+/* Orbs stay vivid enough for the lens to have something to refract,
+   but drop into the scene's exposure range. */
+.dark-scene .geo-pattern { opacity: 0.68; }
+.dark-scene .geo-pattern .orb {
+  filter: brightness(0.78) saturate(0.92);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
+}
+
+.dark-scene .grid-pattern {
+  background-image:
+    linear-gradient(rgba(214,228,255,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214,228,255,0.07) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, transparent 0 92px, rgba(214,228,255,0.09) 92px 93px);
+}
+
+.dark-scene .demo-header { color: #e6ebf7; }
+
+.dark-scene .hero-bg-text {
+  color: rgba(226,235,255,0.82);
+  text-shadow: 0 18px 60px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.dark-scene .glass-panel,
+.dark-scene .glass-nav,
+.dark-scene .glass-btn,
+.dark-scene .controls,
+.dark-scene .live-preview-box,
+.dark-scene .merge-blob,
+.dark-scene .scene-toggle { color: rgba(233,239,251,0.88); }
+
+.dark-scene .perf-hud { color: rgba(233,239,251,0.72); }
+
+.dark-scene .section-header h2,
+.dark-scene .playground-demo h3,
+.dark-scene .materials-demo h3,
+.dark-scene .merge-demo h3,
+.dark-scene .spring-buttons-demo h3 { color: rgba(233,239,251,0.86); }
+
+.dark-scene .section-header p,
+.dark-scene .playground-demo p,
+.dark-scene .materials-demo p,
+.dark-scene .merge-demo p,
+.dark-scene .spring-buttons-demo p { color: rgba(233,239,251,0.44); }
+
+.dark-scene .tab-item { color: rgba(233,239,251,0.5); }
+.dark-scene .tab-item.active { color: rgba(240,245,255,0.94); }
+.dark-scene .tab-item:hover:not(.active) { color: rgba(233,239,251,0.72); }
+
+.dark-scene .ql-tab-indicator {
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.26);
+}
+
+.dark-scene .merge-container {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.13);
+}
+
+.dark-scene .playground { box-shadow: 0 18px 50px rgba(0,0,0,0.5); }
+.dark-scene .materials-strip { box-shadow: 0 18px 50px rgba(0,0,0,0.5); }
+
+.dark-scene .slider-row label { color: rgba(233,239,251,0.6); }
+.dark-scene .slider-row .value { color: rgba(233,239,251,0.5); }
+
+.dark-scene .slider-row input[type="range"]::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(90deg,
+      rgba(235,242,255,0.88) 0 var(--slider-progress, 50%),
+      rgba(255,255,255,0.13) var(--slider-progress, 50%) 100%
+    );
+  border: 1px solid rgba(255,255,255,0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 0 -1px 2px rgba(0,0,0,0.4),
+    0 8px 22px rgba(0,0,0,0.4);
+}
+
+.dark-scene .slider-row input[type="range"]::-webkit-slider-thumb {
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,0.98) 0 18%, rgba(222,231,248,0.8) 38%, rgba(186,200,228,0.9) 100%);
+  border: 1px solid rgba(255,255,255,0.55);
+  box-shadow:
+    0 4px 14px rgba(0,0,0,0.55),
+    inset 0 1px 1px rgba(255,255,255,0.9),
+    inset 0 -4px 8px rgba(38,52,80,0.35);
+}
+
+.dark-scene .slider-row input[type="range"]:focus-visible::-webkit-slider-runnable-track {
+  border-color: rgba(96,150,255,0.75);
+  box-shadow:
+    0 0 0 3px rgba(96,150,255,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    0 8px 22px rgba(0,0,0,0.4);
+}
 
 @media (max-width: 640px) {
   .demo-container {

@@ -55,7 +55,6 @@ const GLASS_BASE: Partial<LiquidGlassConfig> = {
   lightAngle: -35,
   quality: 'high',
   refractionMode: 'svg',
-  tint: '255,255,255',
   fresnelPower: 2.2,
   noiseOpacity: 0,
   noiseScale: 1,
@@ -82,25 +81,32 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [userConfig, setUserConfig] = useState<Partial<LiquidGlassConfig>>({});
+  const [darkScene, setDarkScene] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.toggle('dark-scene', darkScene);
+  }, [darkScene]);
 
   const getConfig = useCallback(
     (fixedOverrides: Partial<LiquidGlassConfig> = {}) => ({
       ...GLASS_BASE,
+      appearance: (darkScene ? 'dark' : 'light') as LiquidGlassConfig['appearance'],
       ...userConfig,
       ...fixedOverrides,
       dynamicLighting: false,
     }),
-    [userConfig],
+    [userConfig, darkScene],
   );
 
   const getLiveConfig = useCallback(
     (extraOverrides: Partial<LiquidGlassConfig> = {}) => ({
       ...GLASS_BASE,
+      appearance: (darkScene ? 'dark' : 'light') as LiquidGlassConfig['appearance'],
       ...userConfig,
       ...extraOverrides,
       dynamicLighting: false,
     }),
-    [userConfig],
+    [userConfig, darkScene],
   );
 
   const handlePerf = useCallback((m: Metrics) => setMetrics(m), []);
@@ -177,6 +183,17 @@ function App() {
         Light: {metrics ? `${metrics.avgFrameTime.toFixed(2)}ms/f` : '-'}
       </LiquidGlass>
 
+      <LiquidGlass
+        config={getConfig({ borderRadius: 999 })}
+        className="scene-toggle"
+        liquidPress
+        onClick={() => setDarkScene(d => !d)}
+        role="button"
+        aria-pressed={darkScene}
+      >
+        {darkScene ? '☀️ Light scene' : '🌙 Dark scene'}
+      </LiquidGlass>
+
       <div className="demo-container">
         <div className="demo-header">
           <h1>Quick Liquid</h1>
@@ -214,7 +231,7 @@ function App() {
               </div>
             </div>
             <LiquidGlass
-              config={getConfig({ borderRadius: 999, blur: 1, refractionStrength: 34, tintOpacity: 0.015, thickness: 30, bezelWidth: 42 })}
+              config={getConfig({ borderRadius: 999, blur: 1, refractionStrength: 34, tintOpacity: 0.015, thickness: 30, bezelWidth: 42, appearance: 'dark' })}
               className="playground-lens"
             />
           </div>
@@ -227,7 +244,7 @@ function App() {
             {(['clear', 'regular', 'thick', 'ultra'] as const).map((m, i) => (
               <LiquidGlass
                 key={m}
-                config={{ material: m, borderRadius: 24, quality: 'high', refractionMode: 'svg' }}
+                config={{ material: m, borderRadius: 24, quality: 'high', refractionMode: 'svg', appearance: 'dark' }}
                 className="material-card"
                 animateIn={i * 90}
                 liquidPress

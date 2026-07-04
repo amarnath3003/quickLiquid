@@ -96,6 +96,16 @@ export interface LiquidGlassConfig {
   quality: 'high' | 'medium' | 'low';
   refractionMode: 'auto' | 'svg' | 'css';
 
+  // Appearance (dark-mode pass)
+  // 'auto' follows prefers-color-scheme. Describes the backdrop BEHIND the
+  // glass, not the OS — pass 'dark' explicitly for glass over a dark panel
+  // inside a light page.
+  appearance?: 'light' | 'dark' | 'auto';
+  // 0 (black wallpaper) … 1 (white). When set, overrides the appearance-implied
+  // value and drives rim/sheen intensity derivation. Hook for host apps that
+  // sample their own wallpaper (roadmap §2.6).
+  backdropLuminance?: number;
+
   // ── Legacy keys (v6) — accepted, mapped or ignored ──
   edgeBlurModifier?: number;    // ignored (single-pass lens now)
   adaptiveTint?: boolean;
@@ -140,8 +150,18 @@ export const DEFAULT_CONFIG: LiquidGlassConfig = {
   quality: 'high',
   refractionMode: 'auto',
 
+  appearance: 'auto',
+
   tintStrength: 1,
 };
+
+/** Dark-appearance material tint (roadmap §1.3) — deep smoke, not gray.
+    Used only when the config still carries the default white tint. */
+const DARK_TINT = '20, 24, 34';
+
+/** Backdrop luminance implied by appearance when not measured/configured. */
+const LUMA_LIGHT = 0.80;
+const LUMA_DARK = 0.10;
 
 export const MATERIAL_PRESETS: Record<string, Partial<LiquidGlassConfig>> = {
   // Apple "clear" — transparent, strong lensing
@@ -422,6 +442,10 @@ export class LiquidGlassEngine {
   private static _svgOk: boolean | null = null;
   private pressHandlers: { down: () => void; up: () => void; leave: () => void } | null = null;
 
+  // Dark-mode: live prefers-color-scheme tracking for appearance: 'auto'
+  private schemeQuery: MediaQueryList | null = null;
+  private schemeListener: (() => void) | null = null;
+
   private static _registry = new Set<LiquidGlassEngine>();
 
   /** Aggregate metrics across all live engines (also exposed on
@@ -489,6 +513,42 @@ export class LiquidGlassEngine {
     this.resizeObs.observe(el);
 
     this.syncPointerListeners();
+    this.syncSchemeListener();
+  }
+
+  /* ─────────────────── APPEARANCE (dark mode) ─────────────────── */
+  private isDark(): boolean {
+    const a = this.cfg.appearance ?? 'auto';
+    if (a === 'dark') return true;
+    if (a === 'light') return false;
+    if (this.schemeQuery) return this.schemeQuery.matches;
+    return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  /** Backdrop luminance 0..1 — explicit config wins, else implied by appearance. */
+  private backdropLuma(): number {
+    const L = this.cfg.backdropLuminance;
+    if (L !== undefined && Number.isFinite(L)) return Math.min(1, Math.max(0, L));
+    return this.isDark() ? LUMA_DARK : LUMA_LIGHT;
+  }
+
+  private syncSchemeListener(): void {
+    const wanted = (this.cfg.appearance ?? 'auto') === 'auto' && typeof matchMedia === 'function';
+    if (wanted && !this.schemeQuery) {
+      this.schemeQuery = matchMedia('(prefers-color-scheme: dark)');
+      this.schemeListener = () => {
+        if (this.destroyed) return;
+        // Appearance flips: restyle tint/rings/shadow — geometry (maps) unchanged.
+        this.updateTint();
+        this.updateRings();
+        this.applyDepth();
+      };
+      this.schemeQuery.addEventListener('change', this.schemeListener);
+    } else if (!wanted && this.schemeQuery) {
+      if (this.schemeListener) this.schemeQuery.removeEventListener('change', this.schemeListener);
+      this.schemeQuery = null;
+      this.schemeListener = null;
+    }
   }
 
   private onResize(): void {
@@ -597,7 +657,14 @@ export class LiquidGlassEngine {
   private updateTint(): void {
     if (!this.tintLayer) return;
     const cfg = this.cfg;
-    const op = cfg.tintOpacity * (cfg.tintStrength ?? 1);
+    // Dark backdrop: the default white tint reads as a gray film — swap it for
+    // deep smoke and thicken slightly (Apple's dark glass is smokier). An
+    // explicitly configured (non-default) tint always wins. Whitespace-
+    // insensitive: '255,255,255' and '255, 255, 255' are the same default.
+    const autoDark = this.isDark() &&
+      cfg.tint.replace(/\s/g, '') === DEFAULT_CONFIG.tint.replace(/\s/g, '');
+    const tint = autoDark ? DARK_TINT : cfg.tint;
+    const op = cfg.tintOpacity * (cfg.tintStrength ?? 1) * (autoDark ? 1.75 : 1);
     if (op <= 0) {
       this.tintLayer.style.background = 'none';
       return;
@@ -605,8 +672,8 @@ export class LiquidGlassEngine {
     // Flat material tint + a whisper of vertical light falloff.
     this.tintLayer.style.background = [
       `linear-gradient(180deg,
-        rgba(${cfg.tint}, ${(op * 1.2).toFixed(4)}) 0%,
-        rgba(${cfg.tint}, ${(op * 0.85).toFixed(4)}) 100%)`,
+        rgba(${tint}, ${(op * 1.2).toFixed(4)}) 0%,
+        rgba(${tint}, ${(op * 0.85).toFixed(4)}) 100%)`,
     ].join(', ');
     this.tintLayer.style.mixBlendMode = cfg.adaptiveTint ? 'overlay' : 'normal';
   }
@@ -658,14 +725,25 @@ export class LiquidGlassEngine {
     const p = Math.max(1, Math.min(6, cfg.fresnelPower ?? 2.2));
     const glow = 1 + 0.3 * this.currentHoverGlow;
 
+    // Luminance-derived intensity (roadmap §1.3): a white rim pops far harder
+    // against a dark backdrop (higher perceived contrast) and the wide sheen
+    // wash reads as gray film — ease both down as the backdrop darkens. At the
+    // light-scene luminance (0.8) both scales ≈ 1, so light tuning is unchanged.
+    const L = this.backdropLuma();
+    const rimScale = 0.55 + 0.56 * L;    // L=0.1 → 0.61: crisp, not neon
+    const sheenScale = 0.35 + 0.81 * L;  // L=0.1 → 0.43: no milky wash
+
     if (this.rimLayer) {
-      const hi = cfg.edgeHighlight * glow;
+      const hi = cfg.edgeHighlight * glow * rimScale;
+      // Dark: raise the uniform base term a touch so the full edge hairline
+      // stays defined where the lobes fade (Apple's dark glass keeps it).
+      const base = 0.16 + 0.10 * Math.max(0, LUMA_LIGHT - L);
       Object.assign(this.rimLayer.style, this.ringMask(1.25));
-      this.rimLayer.style.background = this.conicStops(angle, p, hi * 0.85, hi * 0.16, 0);
+      this.rimLayer.style.background = this.conicStops(angle, p, hi * 0.85, hi * base, 0);
     }
 
     if (this.sheenLayer) {
-      const sp = cfg.specularStrength * glow;
+      const sp = cfg.specularStrength * glow * sheenScale;
       const bezel = Math.min(cfg.bezelWidth, Math.min(this.lastW || 999, this.lastH || 999) / 2);
       Object.assign(this.sheenLayer.style, this.ringMask(Math.max(4, bezel)));
       this.sheenLayer.style.background = [
@@ -699,6 +777,17 @@ export class LiquidGlassEngine {
     const e = this.cfg.elevation;
     if (e <= 0) { this.el.style.boxShadow = 'none'; return; }
     const t = Math.max(1, this.cfg.thickness / 8);
+    if (this.isDark()) {
+      // Shadow → glow swap (roadmap §1.3): a gray drop shadow vanishes on a
+      // dark wallpaper. Depth cue becomes a cool ambient halo (light bleeding
+      // through the slab) + near-black shadows dense enough to read on dark.
+      this.el.style.boxShadow = [
+        `0 0 ${(26 * t * e).toFixed(0)}px rgba(148,176,224,${(0.10 * e).toFixed(3)})`,
+        `0 ${(6 * t * e).toFixed(0)}px ${(24 * t * e).toFixed(0)}px rgba(0,0,0,${(0.36 * e).toFixed(3)})`,
+        `0 ${(1.5 * e).toFixed(1)}px ${(5 * e).toFixed(0)}px rgba(0,0,0,${(0.24 * e).toFixed(3)})`,
+      ].join(', ');
+      return;
+    }
     this.el.style.boxShadow = [
       `0 ${(6 * t * e).toFixed(0)}px ${(22 * t * e).toFixed(0)}px rgba(16,22,34,${(0.13 * e).toFixed(3)})`,
       `0 ${(1.5 * e).toFixed(1)}px ${(5 * e).toFixed(0)}px rgba(16,22,34,${(0.08 * e).toFixed(3)})`,
@@ -1119,6 +1208,7 @@ export class LiquidGlassEngine {
     this.updateNoise();
     this.applyDepth();
     this.syncPointerListeners();
+    this.syncSchemeListener();
   }
 
   /** Return only the keys that differ from DEFAULT_CONFIG so material
@@ -1158,6 +1248,11 @@ export class LiquidGlassEngine {
       this.pressHandlers = null;
     }
     this.teardownPointer();
+    if (this.schemeQuery && this.schemeListener) {
+      this.schemeQuery.removeEventListener('change', this.schemeListener);
+    }
+    this.schemeQuery = null;
+    this.schemeListener = null;
 
     const s = this.el.style;
     s.filter = s.backdropFilter = s.boxShadow = s.backgroundColor = '';

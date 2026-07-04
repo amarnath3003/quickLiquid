@@ -15,10 +15,12 @@ two-lobe conic lighting). Items are grouped and tagged **[impact / effort]**.
    **[high / medium]**
 2. **Commit the v7 work** in logical chunks (engine core, demo showcase,
    docs/tools) once visuals are approved. **[high / low]**
-3. **Dark-mode pass** — glass over dark wallpapers needs: darker tint option
-   (`tint: '20,24,34'`), rim light intensity auto-derived from backdrop
-   luminance (see §3.2), shadow → glow swap. Apple's glass adapts; ours is
-   currently tuned for light scenes. **[high / medium]**
+3. ~~**Dark-mode pass**~~ ✅ **DONE** — `appearance: 'light' | 'dark' | 'auto'`
+   (auto follows `prefers-color-scheme` live) + `backdropLuminance` hook.
+   Dark: default tint → deep smoke `20,24,34` (×1.75 opacity), rim/sheen
+   intensity derived from backdrop luminance (light tuning unchanged at
+   L=0.8), shadow → ambient glow swap. Demo has a light/dark scene toggle;
+   playground lens + material cards pin `appearance: 'dark'`. **[high / medium]**
 4. **Publish `0.2.0` to npm** with dist build, README badges pointing at a
    deployed demo (Vercel/Netlify — the demo already builds statically).
    **[high / low]**
