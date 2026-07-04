@@ -17,10 +17,13 @@ export function Nav() {
           appearance: 'dark',
           borderRadius: 22,
           blur: 10,
-          tintOpacity: 0.1,
+          tintOpacity: 0.08,
           refractionStrength: 14,
           bezelWidth: 20,
           elevation: 0.6,
+          specularStrength: 0.16,
+          edgeHighlight: 0.5,
+          fresnelPower: 3.2,
         }}
       >
         <nav className="nav-inner" aria-label="Main">

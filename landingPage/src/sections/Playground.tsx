@@ -359,21 +359,25 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
               Reset all
             </button>
             <div className="pg-hud" aria-live="off">
-              {fps ? (
+              {metrics ? (
                 <>
-                  <span>
-                    <b>{fps.toFixed(0)}</b> fps
-                  </span>
-                  <span>
-                    <b>{metrics!.avgFrameTime.toFixed(2)}</b> ms/frame
-                  </span>
-                  {typeof metrics!.mapGenMs === 'number' && (
+                  {typeof metrics.mapGenMs === 'number' && metrics.mapGenMs > 0 && (
                     <span>
-                      map <b>{metrics!.mapGenMs.toFixed(1)}</b> ms
+                      map gen <b>{metrics.mapGenMs.toFixed(1)}</b> ms
+                    </span>
+                  )}
+                  {typeof metrics.mapPixelsComputed === 'number' && metrics.mapPixelsComputed > 0 && (
+                    <span>
+                      <b>{(metrics.mapPixelsComputed / 1000).toFixed(0)}k</b> px traced
+                    </span>
+                  )}
+                  {fps && (
+                    <span>
+                      <b>{fps.toFixed(0)}</b> fps
                     </span>
                   )}
                   <span>
-                    quality <b>{metrics!.quality}</b>
+                    quality <b>{metrics.quality}</b>
                   </span>
                 </>
               ) : (
