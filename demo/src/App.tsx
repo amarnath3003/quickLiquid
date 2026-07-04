@@ -255,13 +255,13 @@ function App() {
               <div className="motion-grid" />
             </div>
             <LiquidGlass
-              config={getConfig({ borderRadius: 26, blur: 1.5, refractionStrength: 32, tintOpacity: 0.015, thickness: 30, bezelWidth: 40, appearance: 'dark' })}
+              config={getConfig({ borderRadius: 26, blur: 1.5, refractionStrength: 24, tintOpacity: 0.015, thickness: 22, bezelWidth: 20, appearance: 'dark' })}
               className="motion-glass motion-glass-clear"
             >
               <span className="motion-label">clear — pure lens</span>
             </LiquidGlass>
             <LiquidGlass
-              config={getConfig({ borderRadius: 26, blur: 16, tintOpacity: 0.09, refractionStrength: 16, appearance: 'dark' })}
+              config={getConfig({ borderRadius: 26, blur: 16, tintOpacity: 0.09, refractionStrength: 14, thickness: 20, bezelWidth: 20, appearance: 'dark' })}
               className="motion-glass motion-glass-frosted"
             >
               <span className="motion-label">frosted — blur + tint</span>

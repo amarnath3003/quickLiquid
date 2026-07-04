@@ -3,12 +3,15 @@
   "private": true,
   "workspaces": [
     "packages/quick-liquid",
-    "demo"
+    "demo",
+    "landingPage"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=demo",
+    "dev:landing": "npm run dev --workspace=landingPage",
     "build:lib": "npm run build --workspace=packages/quick-liquid",
-    "build": "npm run build:lib && npm run build --workspace=demo",
+    "build:landing": "npm run build --workspace=landingPage",
+    "build": "npm run build:lib && npm run build --workspace=demo && npm run build:landing",
     "typecheck": "npm run typecheck --workspace=packages/quick-liquid"
   }
 }
