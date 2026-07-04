@@ -53,7 +53,7 @@ export function GlassMarquee() {
               blur: 0.5,
               refractionStrength: 34,
               thickness: 32,
-              bezelWidth: 12,
+              bezelWidth: 15,
               tintOpacity: 0.02,
               chromaticAberration: 0.55,
               appearance: 'dark',
