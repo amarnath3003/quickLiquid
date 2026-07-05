@@ -35,6 +35,27 @@ export class AnimationScheduler {
   private _droppedFrames = 0;
   private _lastTimestamp = 0;
 
+  // Accessibility: prefers-reduced-motion. Cached + live-tracked. When the OS
+  // asks to reduce motion, animations are fast-forwarded to their resting
+  // state instead of playing (see settleImmediately). For users WITHOUT the
+  // preference this is never consulted — default motion is unchanged.
+  private static _reduceMotion: boolean | null = null;
+
+  /** Whether the OS requests reduced motion. Result is cached and kept live
+   *  via a matchMedia change listener. Safe in non-DOM/SSR (returns false). */
+  static prefersReducedMotion(): boolean {
+    if (AnimationScheduler._reduceMotion !== null) return AnimationScheduler._reduceMotion;
+    if (typeof matchMedia !== 'function') {
+      return (AnimationScheduler._reduceMotion = false);
+    }
+    const q = matchMedia('(prefers-reduced-motion: reduce)');
+    AnimationScheduler._reduceMotion = q.matches;
+    const onChange = () => { AnimationScheduler._reduceMotion = q.matches; };
+    if (typeof q.addEventListener === 'function') q.addEventListener('change', onChange);
+    else if (typeof (q as any).addListener === 'function') (q as any).addListener(onChange); // Safari <14
+    return AnimationScheduler._reduceMotion;
+  }
+
   /** Get singleton scheduler (all liquid elements share one loop) */
   static shared(): AnimationScheduler {
     if (!_instance) {
@@ -50,9 +71,32 @@ export class AnimationScheduler {
    */
   schedule(callback: AnimationCallback, priority: number = 0): number {
     const id = ++this.nextId;
+    // prefers-reduced-motion: collapse the animation to its final state with no
+    // visible motion, rather than scheduling per-frame ticks. End state is
+    // identical — only the journey is skipped.
+    if (AnimationScheduler.prefersReducedMotion()) {
+      this.settleImmediately(callback);
+      return id;
+    }
     this.animations.set(id, { id, callback, priority });
     this.wake();
     return id;
+  }
+
+  /**
+   * Fast-forward an animation to rest synchronously (no rAF, no paint between
+   * steps → no visible motion). Used only under prefers-reduced-motion.
+   * Springs are analytic in `now`, so they settle in a few steps; the step cap
+   * bounds continuous/non-settling callbacks so this can never hang.
+   */
+  private settleImmediately(callback: AnimationCallback): void {
+    const STEP = 1000 / 60;
+    const MAX_STEPS = 600; // ~10s of virtual time — ample for any real spring
+    let now = typeof performance !== 'undefined' ? performance.now() : 0;
+    for (let i = 0; i < MAX_STEPS; i++) {
+      if (!callback(now)) return; // reached rest
+      now += STEP;
+    }
   }
 
   /** Cancel a scheduled animation */
