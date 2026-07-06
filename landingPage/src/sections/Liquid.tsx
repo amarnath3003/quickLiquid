@@ -31,11 +31,11 @@ export function Liquid() {
       <div className="section-head">
         <span className="section-kicker">the liquid part</span>
         <h2 className="display">
-          It <em className="ink">moves</em> like water, too.
+          The material responds, too.
         </h2>
         <p>
-          The same package ships the motion toolkit — springs, gestures and morphing selection —
-          so the glass doesn’t just look right, it responds right.
+          Springs, gestures and morphing selection ship with the engine, so the glass can feel alive
+          without hand-written keyframes.
         </p>
       </div>
 
@@ -61,7 +61,7 @@ export function Liquid() {
           </div>
           <div className="liquid-cell__info">
             <code>LiquidTabBar</code>
-            <p>The selection stretches across the gap, then snaps to the new tab — a spring on
+            <p>The selection stretches across the gap, then snaps to the new tab: a spring on
             position, a spring on width.</p>
           </div>
         </div>
@@ -91,7 +91,7 @@ export function Liquid() {
           </div>
           <div className="liquid-cell__info">
             <code>liquidPress</code>
-            <p>Hold one down — squash, stretch and a spring release. No keyframes written.</p>
+            <p>Hold one down for squash, stretch and a spring release. No keyframes written.</p>
           </div>
         </div>
 
@@ -113,7 +113,7 @@ export function Liquid() {
           </div>
           <div className="liquid-cell__info">
             <code>jiggle()</code>
-            <p>The whole panel wobbles with the engine’s squash-and-stretch curve. One call.</p>
+            <p>The whole panel wobbles with the engine's squash-and-stretch curve. One call.</p>
           </div>
         </div>
       </div>

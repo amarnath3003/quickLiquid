@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
-/** One-pass tokenizer → React spans (no innerHTML). Good enough for our fixed snippets. */
+/** One-pass tokenizer to React spans. Good enough for our fixed snippets. */
 const JS_TOKEN =
   /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|('(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`)|\b(import|from|export|default|const|let|var|function|return|new|await|async|interface|type|extends|implements|class|if|else|for|of|in|true|false|null|undefined)\b|(\b\d+(?:\.\d+)?\b)/g;
 
@@ -67,7 +67,7 @@ export function CodeBlock({ code, lang = 'ts', title, compact }: CodeBlockProps)
         </span>
         <span className="code-block__title">{title ?? lang}</span>
         <button className="code-block__copy" onClick={() => copy(code)} type="button">
-          {copied ? '✓ Copied' : 'Copy'}
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       <pre className="code-block__pre">

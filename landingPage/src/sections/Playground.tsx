@@ -27,8 +27,7 @@ const SCENES: { id: SceneId; label: string; dark: boolean }[] = [
 
 const MATERIALS = ['none', 'clear', 'thin', 'regular', 'thick', 'ultra', 'adaptive'] as const;
 
-/* The handful of knobs that actually change the vibe — friendly names, no jargon.
-   Everything else lives in the collapsed “all properties” drawer below. */
+/* The handful of knobs that actually change the vibe. Everything else lives in the drawer below. */
 const ESSENTIALS: { key: keyof LiquidGlassConfig; label: string; hint: string }[] = [
   { key: 'blur', label: 'Frost', hint: 'how milky the backdrop turns' },
   { key: 'refractionStrength', label: 'Bend', hint: 'how hard the edges refract' },
@@ -73,7 +72,7 @@ export function Playground() {
   const advancedRef = useRef<HTMLDetailsElement>(null);
   const flashTimer = useRef<number>(0);
 
-  /* Scene switcher is a real LiquidTabBar — the selection flows between tabs */
+  /* Scene switcher is a real LiquidTabBar. The selection flows between tabs. */
   const { containerRef: sceneBarRef, select: selectScene } = useLiquidTabBar(0);
 
   const pickScene = useCallback(
@@ -86,7 +85,7 @@ export function Playground() {
 
   const sceneDark = SCENES.find(s => s.id === scene)!.dark;
 
-  /* Effective values shown on the controls = defaults ⊕ material preset ⊕ user overrides */
+  /* Effective values shown on the controls: defaults plus material preset plus user overrides. */
   const effective = useMemo(() => {
     const presetLayer = material !== 'none' ? (MATERIAL_PRESETS[material] ?? {}) : {};
     return {
@@ -97,7 +96,7 @@ export function Playground() {
     } as LiquidGlassConfig & Record<string, unknown>;
   }, [material, overrides, sceneDark]);
 
-  /* What actually goes into the engine — explicit keys win over the material preset */
+  /* What actually goes into the engine. Explicit keys win over the material preset. */
   const engineConfig = useMemo<Partial<LiquidGlassConfig>>(
     () => ({
       ...(material !== 'none' ? { material: material as LiquidGlassConfig['material'] } : {}),
@@ -155,7 +154,7 @@ export function Playground() {
 
   const handlePerf = useCallback((m: Metrics) => setMetrics(m), []);
 
-  /* Draggable lens with spring-home physics — dogfoods LiquidGesture */
+  /* Draggable lens with spring-home physics. */
   useEffect(() => {
     const host = stageRef.current?.querySelector<HTMLElement>('.pg-lens');
     if (!host) return;
@@ -182,7 +181,7 @@ export function Playground() {
 
 <LiquidGlass
   config={{
-${configLines.length ? configLines.map(l => '  ' + l).join('\n') : '    // engine defaults — move a slider!'}
+${configLines.length ? configLines.map(l => '  ' + l).join('\n') : '    // engine defaults. Move a slider.'}
   }}
 >
   {children}
@@ -190,7 +189,7 @@ ${configLines.length ? configLines.map(l => '  ' + l).join('\n') : '    // engin
   const vanillaExport = `import { LiquidGlassEngine } from 'quick-liquid';
 
 const engine = new LiquidGlassEngine(element, {
-${configLines.length ? configLines.join('\n') : '  // engine defaults — move a slider!'}
+${configLines.length ? configLines.join('\n') : '  // engine defaults. Move a slider.'}
 });`;
 
   /* ── essential slider (friendly, no API jargon) ────────────────── */
@@ -214,7 +213,7 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
             {spec.unit ?? ''}
             {overridden && (
               <button type="button" className="ctl-reset" onClick={() => resetKey(key)} title="Reset">
-                ↺
+                reset
               </button>
             )}
           </span>
@@ -347,7 +346,7 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
                 onClick={() => resetKey(key)}
                 title="Reset to default"
               >
-                ↺
+                reset
               </button>
             )}
           </span>
@@ -364,11 +363,11 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
       <div className="section-head">
         <span className="section-kicker">the playground</span>
         <h2 className="display">
-          Play with the <em className="ink">glass.</em>
+          Tune the lens in place.
         </h2>
         <p>
           Pick a look, nudge a few sliders, grab the code. Every one of the {PROPERTIES.length}{' '}
-          properties is still here — tucked into “all properties” for when you want to go deep.
+          properties is still here in all properties for deep tuning.
         </p>
       </div>
 
@@ -395,7 +394,7 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
                   <b>{fps.toFixed(0)}</b> fps
                 </>
               ) : (
-                'measuring…'
+                'measuring...'
               )}
             </span>
           </div>
@@ -463,7 +462,7 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
                   onClick={() => setExportTab('react')}
                   type="button"
                 >
-                  ⚛️ React
+                  React
                 </button>
                 <button
                   role="tab"
@@ -472,15 +471,15 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
                   onClick={() => setExportTab('vanilla')}
                   type="button"
                 >
-                  ⚡ Vanilla
+                  Vanilla
                 </button>
               </div>
-              <span className="pg-export-note">updates as you tweak →</span>
+              <span className="pg-export-note">updates as you tweak</span>
             </div>
             {exportTab === 'react' ? (
-              <CodeBlock code={reactExport} lang="tsx" title="your config — live" />
+              <CodeBlock code={reactExport} lang="tsx" title="your config, live" />
             ) : (
-              <CodeBlock code={vanillaExport} lang="ts" title="your config — live" />
+              <CodeBlock code={vanillaExport} lang="ts" title="your config, live" />
             )}
           </div>
         </div>
@@ -517,9 +516,9 @@ ${configLines.length ? configLines.join('\n') : '  // engine defaults — move a
           <details className="pg-advanced" ref={advancedRef}>
             <summary>
               <span className="pg-adv-title">All {PROPERTIES.length} properties</span>
-              <span className="pg-adv-sub">material, lighting, dispersion, texture…</span>
+              <span className="pg-adv-sub">material, lighting, dispersion, texture...</span>
               <span className="pg-adv-chevron" aria-hidden>
-                ⌄
+                v
               </span>
             </summary>
 

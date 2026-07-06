@@ -32,18 +32,15 @@ export function Hero() {
 
       <div className="hero-inner">
         <div className="hero-copy">
-          <span className="hero-badge">
-            <span className="hero-badge__pulse" aria-hidden /> v0.1.0 · MIT · React 18+ &amp; vanilla JS
-          </span>
+          <span className="hero-badge">MIT package for React and vanilla JS</span>
           <h1 className="display">
-            Liquid glass, <em className="ink">properly</em>
+            Liquid glass{' '}
             <br />
-            ray-traced for the web.
+            for <em className="ink">tactile web UI.</em>
           </h1>
           <p className="hero-sub">
-            quickliquid renders Apple’s liquid-glass material with vector Snell’s-law refraction,
-            two-lobe rim light and chromatic dispersion. No shaders, no canvas, no WebGL.{' '}
-            <strong>Just physics, at 60&nbsp;fps.</strong>
+            quickliquid turns ordinary HTML into refractive, springy interface material. No shaders,
+            no canvas, no WebGL.
           </p>
 
           <div className="hero-actions">
@@ -52,30 +49,15 @@ export function Hero() {
                 $
               </span>
               npm install quick-liquid
-              <span className="install-pill__copy">{copied ? '✓' : '⧉'}</span>
+              <span className="install-pill__copy">{copied ? 'copied' : 'copy'}</span>
             </button>
             <a className="btn btn--primary" href="#playground">
               Open the playground
             </a>
             <a className="link-more" href="/docs/">
-              Read the docs <span aria-hidden>→</span>
+              Read the docs <span aria-hidden>-&gt;</span>
             </a>
           </div>
-
-          <ul className="hero-stats">
-            <li>
-              <b>0.3–5 ms</b>
-              <span>to ray-trace a map for a new geometry</span>
-            </li>
-            <li>
-              <b>1 map</b>
-              <span>shared by every same-size element</span>
-            </li>
-            <li>
-              <b>≈ 0.1 px</b>
-              <span>quantization error — the 8-bit floor</span>
-            </li>
-          </ul>
         </div>
 
         <div className="hero-stage" ref={stageRef}>
@@ -111,7 +93,7 @@ export function Hero() {
                 </span>
                 <div>
                   <b>Liquid Glass</b>
-                  <small>drag me — the scene bends beneath</small>
+                  <small>drag me. The scene bends beneath.</small>
                 </div>
               </div>
               <div className="hero-card__meter" aria-hidden>
@@ -123,33 +105,6 @@ export function Hero() {
                 <span>60 fps</span>
               </div>
             </div>
-          </LiquidGlass>
-
-          <LiquidGlass
-            className="hero-pill"
-            animateIn={420}
-            config={{
-              material: 'regular',
-              appearance: 'dark',
-              borderRadius: 999,
-            }}
-          >
-            <span className="hero-pill__label">
-              material=<em>'regular'</em> — frosted
-            </span>
-          </LiquidGlass>
-
-          <LiquidGlass
-            className="hero-lens"
-            animateIn={560}
-            config={{
-              material: 'clear',
-              appearance: 'dark',
-              borderRadius: 999,
-              chromaticAberration: 0.5,
-            }}
-          >
-            <span className="hero-lens__label">clear</span>
           </LiquidGlass>
         </div>
       </div>

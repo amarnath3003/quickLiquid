@@ -1,30 +1,30 @@
 import { LiquidGlass } from 'quick-liquid/react';
 
 /**
- * Motion behind glass — three rows of display type scroll in alternating
+ * Motion behind glass: three rows of display type scroll in alternating
  * directions and speeds while a single liquid-glass loupe glides across them.
  * The engine's lens is a live backdrop-filter (no snapshot), so the glass
  * keeps refracting whatever moving type it happens to be over as it sweeps.
  */
 const ROWS = [
-  { words: ['refraction', "snell's law", 'fresnel', 'dispersion', 'caustics'], dir: 'left', dur: 30 },
-  { words: ['surface tension', 'chromatic', 'lensing', 'index of refraction'], dir: 'right', dur: 38 },
-  { words: ['spring physics', 'squash & stretch', 'inertia', 'morph', 'jiggle'], dir: 'left', dur: 24 },
+  { words: ['refraction', "snell's law", 'fresnel', 'dispersion', 'caustics'], dir: 'left', dur: 34 },
+  { words: ['surface tension', 'chromatic', 'lensing', 'index of refraction'], dir: 'right', dur: 42 },
+  { words: ['spring physics', 'squash and stretch', 'inertia', 'morph', 'jiggle'], dir: 'left', dur: 28 },
 ];
 
 export function GlassMarquee() {
   return (
     <section className="motion" aria-label="Motion behind glass">
       <div className="motion-head">
-        <span className="motion-head__label">motion behind glass</span>
-        <span className="motion-head__note">a live lens sweeping over moving type</span>
+        <span className="motion-head__label">live refraction sample</span>
+        <span className="motion-head__note">moving type under a real lens</span>
       </div>
       <div className="motion-stage">
         <div className="motion-bg" aria-hidden>
           <i className="motion-beam" />
           <div className="motion-rows">
             {ROWS.map((row, r) => {
-              // tripled so a −33.33% shift is exactly one set → seamless loop
+              // Tripled so a -33.33% shift is exactly one set for a seamless loop.
               const line = [...row.words, ...row.words, ...row.words];
               return (
                 <div
@@ -35,7 +35,7 @@ export function GlassMarquee() {
                   {line.map((w, i) => (
                     <span key={i}>
                       {w}
-                      <i>·</i>
+                      <i>/</i>
                     </span>
                   ))}
                 </div>

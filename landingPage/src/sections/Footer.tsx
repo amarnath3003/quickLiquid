@@ -37,7 +37,7 @@ export function Footer() {
           </nav>
         </div>
         <p className="footer-license">
-          MIT © {new Date().getFullYear()} — PRs welcome. Bring a towel.
+          MIT © {new Date().getFullYear()}. PRs welcome.
         </p>
       </div>
     </footer>

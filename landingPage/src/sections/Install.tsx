@@ -52,16 +52,20 @@ export function Install() {
       <div className="section-head">
         <span className="section-kicker">get started</span>
         <h2 className="display">
-          <em className="ink">Pour it</em> into your app.
+          Install it, wrap an element, tune the feel.
         </h2>
         <p>
-          Zero runtime dependencies. React 18+ is an optional peer dependency — the core engine is
+          Zero runtime dependencies. React 18+ is an optional peer dependency; the core engine is
           plain TypeScript and works on any element.
         </p>
       </div>
 
       <div className="install-cols">
         <div className="install-col">
+          <div className="install-card-head">
+            <h3>Command</h3>
+            <p>Choose the package manager you ship with.</p>
+          </div>
           <div className="tab-row" role="tablist" aria-label="Package manager">
             {MANAGERS.map((m, i) => (
               <button
@@ -80,7 +84,7 @@ export function Install() {
 
           <ol className="install-steps">
             <li>
-              <b>Install</b> the package — <code>dist</code> ships ESM + CJS + types.
+              <b>Install</b> the package. <code>dist</code> ships ESM, CJS and types.
             </li>
             <li>
               <b>Wrap</b> any element in <code>&lt;LiquidGlass&gt;</code> (or attach{' '}
@@ -94,6 +98,10 @@ export function Install() {
         </div>
 
         <div className="install-col">
+          <div className="install-card-head">
+            <h3>Starter code</h3>
+            <p>Same glass engine, React wrapper or direct DOM attach.</p>
+          </div>
           <div className="tab-row" role="tablist" aria-label="Framework">
             <button
               role="tab"
@@ -102,7 +110,7 @@ export function Install() {
               onClick={() => setTab('react')}
               type="button"
             >
-              ⚛️ React
+              React
             </button>
             <button
               role="tab"
@@ -111,7 +119,7 @@ export function Install() {
               onClick={() => setTab('vanilla')}
               type="button"
             >
-              ⚡ Vanilla JS
+              Vanilla JS
             </button>
           </div>
           {tab === 'react' ? (

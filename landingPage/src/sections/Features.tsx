@@ -2,34 +2,34 @@ import { LiquidGlass } from 'quick-liquid/react';
 
 const FEATURES = [
   {
-    tag: '01 · snell',
-    title: 'Exact refraction, not art sliders',
-    body: 'The displacement field is ray-traced through a convex bezel with vector Snell’s law. Thickness, bezel width and IOR are physical knobs — the “clear center, bent rim” look falls out of the math.',
+    tag: 'Optics',
+    title: 'Refraction from real geometry',
+    body: 'The displacement field is traced through a convex bezel with vector Snell law. Thickness, bezel width and IOR stay physical.',
   },
   {
-    tag: '02 · dispersion',
-    title: 'Chromatic aberration for free',
+    tag: 'Color',
+    title: 'Prism edges without extra maps',
     body: 'Dispersion is a linear per-channel scale on one shared map: three feDisplacementMap scales, zero extra generation. Turn the prism up without paying for it.',
   },
   {
-    tag: '03 · fresnel',
-    title: 'Apple-signature lighting',
-    body: 'A two-lobe conic rim — bright at the light angle and its mirror — plus a soft bezel sheen. Not a generic glassmorphism fog.',
+    tag: 'Light',
+    title: 'Rim light that reads as glass',
+    body: 'A two-lobe conic rim plus a soft bezel sheen gives the material an edge instead of a generic blur fog.',
   },
   {
-    tag: '04 · lut',
-    title: 'Heavily optimized maps',
-    body: '1-D LUT reduction, bezel-band-only iteration, 4-fold symmetry, refcounted cache: 0.3–5 ms per unique geometry, and same-size elements share one map.',
+    tag: 'Cache',
+    title: 'Optimized where it matters',
+    body: 'LUT reduction, bezel-band iteration, symmetry and refcounted maps keep repeated glass elements cheap.',
   },
   {
-    tag: '05 · metaballs',
-    title: 'Droplets that merge',
-    body: 'Metaball groups let adjacent glass blobs bridge and morph like water finding itself — you dragged some together in the hero just now.',
+    tag: 'Motion',
+    title: 'Droplets that can merge',
+    body: 'Metaball groups let nearby glass blobs bridge and morph, so the interface can behave like a material.',
   },
   {
-    tag: '06 · react + js',
+    tag: 'API',
     title: 'React-first, vanilla-friendly',
-    body: 'A <LiquidGlass> component with mount springs, jiggles and press physics — or attach LiquidGlassEngine to any element in plain JavaScript.',
+    body: 'Use the React component for product UI, or attach LiquidGlassEngine to any element in plain JavaScript.',
   },
 ];
 
@@ -39,11 +39,10 @@ export function Features() {
       <div className="section-head">
         <span className="section-kicker">why quickliquid</span>
         <h2 className="display">
-          Real optics. <em className="ink">Minimal</em> compute.
+          Built like a material, not a backdrop blur.
         </h2>
         <p>
-          Every layer — lens, tint, sheen, rim — is derived from a physical model of a glass slab,
-          then aggressively optimized for the browser. These cards? Also glass.
+          The lens, tint, sheen and rim come from one physical model, then get trimmed for the browser.
         </p>
       </div>
 
@@ -57,7 +56,7 @@ export function Features() {
           {FEATURES.map((f, i) => (
             <LiquidGlass
               key={f.tag}
-              className="feature-card"
+              className={`feature-card feature-card--${i}`}
               animateIn={i * 80}
               config={{
                 material: 'thin',
@@ -69,6 +68,11 @@ export function Features() {
               }}
             >
               <article className="feature-card__body">
+                <span className="feature-card__visual" aria-hidden>
+                  <i />
+                  <i />
+                  <i />
+                </span>
                 <span className="feature-card__tag">{f.tag}</span>
                 <h3>{f.title}</h3>
                 <p>{f.body}</p>
