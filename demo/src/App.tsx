@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, PointerEvent } from 'react';
 import type { CSSProperties } from 'react';
 import { LiquidGlass } from 'quick-liquid/react';
 import type { LiquidGlassConfig } from 'quick-liquid';
@@ -78,6 +78,62 @@ const LIVE_CONTROLS: SliderControl[] = [
   { key: 'lightAngle', label: 'Light Angle', min: -180, max: 180, step: 5, unit: 'deg', precision: 0 },
 ];
 
+const DraggableCapsule = ({ label, material, initialPos, isCircle = false }: { label?: string, material: 'clear'|'regular'|'thick'|'ultra'|'custom'|'magnifier', initialPos: {x: number, y: number}, isCircle?: boolean }) => {
+  const [pos, setPos] = useState(initialPos);
+  const dragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
+
+  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      isDragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: pos.x,
+      initialY: pos.y
+    };
+  };
+
+  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.isDragging) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    setPos({
+      x: dragRef.current.initialX + dx,
+      y: dragRef.current.initialY + dy
+    });
+  };
+
+  const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    dragRef.current.isDragging = false;
+  };
+
+  // Base config for presets
+  const configOverrides = material === 'custom' 
+    ? { borderRadius: 999, blur: 24, tintOpacity: 0.2, refractionStrength: 10, thickness: 15, bezelWidth: 15, appearance: 'dark' as const }
+    : material === 'magnifier'
+    ? { borderRadius: 999, blur: 0, refractionStrength: 20, chromaticAberration: 0.5, thickness: 20, bezelWidth: 60, tintOpacity: 0, specularStrength: 0.05, edgeHighlight: 0.2, appearance: 'light' as const }
+    : { material, appearance: 'dark' as const, borderRadius: 999 };
+
+  return (
+    <div
+      className={`draggable-capsule-wrapper ${isCircle ? 'is-circle' : ''}`}
+      style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      <LiquidGlass
+        config={configOverrides}
+        className={`drag-capsule-stay ${isCircle ? 'capsule-circle' : ''}`}
+      >
+        {label && <span>{label}</span>}
+      </LiquidGlass>
+    </div>
+  );
+};
+
 function App() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -139,6 +195,21 @@ function App() {
     const value = typeof raw === 'number' ? raw : 0;
     return `${value.toFixed(control.precision ?? 0)}${control.unit ?? ''}`;
   }, [sliderValues]);
+
+  const BACKGROUND_IMAGES = [
+    'https://images.unsplash.com/photo-1547471080-7cb2cb6a5a36?q=80&w=2070&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1518182170546-076616fdce66?q=80&w=2070&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=2070&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?q=80&w=2072&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1506744626753-1407336c2dfa?q=80&w=2070&auto=format&fit=crop',
+  ];
+  const [bgImageIndex, setBgImageIndex] = useState(0);
+  const imageDragContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!imageDragContainerRef.current) return;
+    // We've removed LiquidGesture here, since we implemented DraggableCapsule with custom logic to stay in place.
+  }, []);
 
   useEffect(() => {
     if (!mergeContainerRef.current) return;
@@ -235,6 +306,41 @@ function App() {
               config={getConfig({ borderRadius: 999, blur: 1, refractionStrength: 34, tintOpacity: 0.015, thickness: 30, bezelWidth: 42, appearance: 'dark' })}
               className="playground-lens"
             />
+          </div>
+        </div>
+
+        <div className="image-drag-demo">
+          <h3>Interactive Media Layout</h3>
+          <p>Drag the glass capsules over the video and text to see real-time optical refraction. They will stay exactly where you leave them.</p>
+          <div className="image-stage" ref={imageDragContainerRef} style={{ backgroundImage: `url(${BACKGROUND_IMAGES[bgImageIndex]})` }}>
+            <div className="image-switcher">
+              {BACKGROUND_IMAGES.map((_, i) => (
+                <button 
+                  key={i} 
+                  className={`dot-btn ${i === bgImageIndex ? 'active' : ''}`}
+                  onClick={() => setBgImageIndex(i)}
+                  aria-label={`Switch image ${i + 1}`}
+                />
+              ))}
+            </div>
+            
+            <div className="media-layout">
+              <div className="media-video-container">
+                <video src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" controls loop muted autoPlay playsInline />
+              </div>
+              <div className="media-text-container">
+                <h4>Sample Content Box</h4>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit.</p>
+                <p>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt.</p>
+              </div>
+            </div>
+
+            <DraggableCapsule label="Clear Preset" material="clear" initialPos={{ x: 100, y: 150 }} />
+            <DraggableCapsule label="Regular Preset" material="regular" initialPos={{ x: 280, y: 240 }} />
+            <DraggableCapsule label="Thick Preset" material="thick" initialPos={{ x: 620, y: 80 }} />
+            <DraggableCapsule label="Ultra Preset" material="ultra" initialPos={{ x: 740, y: 320 }} />
+            <DraggableCapsule label="Custom Frosted" material="custom" initialPos={{ x: 400, y: 350 }} />
+            <DraggableCapsule material="magnifier" initialPos={{ x: 500, y: 160 }} isCircle={true} />
           </div>
         </div>
 
