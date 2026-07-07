@@ -1,6 +1,6 @@
 {
   "name": "quick-liquid",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ultra-optimized Liquid Glass UI framework - Apple's liquid glass effect with minimal compute",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -40,7 +40,7 @@
   "bugs": {
     "url": "https://github.com/amarnath3003/quickLiquid/issues"
   },
-  "homepage": "https://github.com/amarnath3003/quickLiquid#readme",
+  "homepage": "https://quickliquid.vercel.app",
   "author": "Amarnath",
   "engines": {
     "node": ">=18"
