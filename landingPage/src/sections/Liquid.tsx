@@ -14,6 +14,7 @@ const GLASS: Partial<LiquidGlassConfig> = {
   bezelWidth: 22,
   thickness: 18,
   tintOpacity: 0.06,
+  specularStrength: 0.12,
 };
 
 export function Liquid() {

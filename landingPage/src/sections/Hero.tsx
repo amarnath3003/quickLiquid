@@ -83,6 +83,7 @@ export function Hero() {
               tintOpacity: 0.03,
               appearance: 'dark',
               edgeHighlight: 0.95,
+              specularStrength: 0.12,
               borderRadius: 28,
             }}
           >

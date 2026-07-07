@@ -57,6 +57,7 @@ export function GlassMarquee() {
               tintOpacity: 0.02,
               chromaticAberration: 0.55,
               appearance: 'dark',
+              specularStrength: 0.08,
               borderRadius: 30,
               elevation: 1.15,
             }}
