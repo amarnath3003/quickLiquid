@@ -1,17 +1,13 @@
 /**
  * quick-liquid - Liquid Glass UI Framework
- * 
+ *
  * Produces Apple's liquid glass visual effect with real refraction distortion
- * AND smooth liquid animations (spring physics, merging, morphing).
+ * and smooth liquid animations.
  */
 
 // Core glass engine
 export { LiquidGlassEngine, DEFAULT_CONFIG, MATERIAL_PRESETS } from './core/engine';
 export type { LiquidGlassConfig } from './core/engine';
-
-// v8 optimized engine (A/B candidate — see packages/quick-liquid/OPTIMIZATION.md)
-export { LiquidGlassEngineOpt } from './core/engine-opt';
-export type { LiquidGlassOptConfig } from './core/engine-opt';
 
 // Liquid animations
 export {
@@ -21,7 +17,7 @@ export {
   SPRING_PRESETS,
   // Scheduler
   AnimationScheduler,
-  // Morphing & metaballs
+  // Morphing and metaballs
   LiquidMorph,
   LiquidMetaball,
   generateMergeBlob,

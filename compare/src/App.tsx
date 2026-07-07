@@ -10,10 +10,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
   LiquidGlassEngine,
-  LiquidGlassEngineOpt,
   MATERIAL_PRESETS,
 } from 'quick-liquid';
-import type { LiquidGlassOptConfig } from 'quick-liquid';
+import { LiquidGlassEngineOpt } from '../../packages/quick-liquid/src/core/engine-opt';
+import type { LiquidGlassOptConfig } from '../../packages/quick-liquid/src/core/engine-opt';
 
 type EngineKind = 'base' | 'opt';
 type Profile = Partial<LiquidGlassOptConfig>;
