@@ -1,0 +1,33 @@
+<svg width="760" height="220" viewBox="0 0 760 220" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">QuickLiquid logo</title>
+  <desc id="desc">A refractive glass droplet next to the QuickLiquid wordmark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="40" y1="20" x2="720" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8F7FF"/>
+      <stop offset="0.48" stop-color="#F7FBFF"/>
+      <stop offset="1" stop-color="#EAF2FF"/>
+    </linearGradient>
+    <linearGradient id="drop" x1="83" y1="28" x2="174" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="0.4" stop-color="#DDF6FF" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#9FD6FF" stop-opacity="0.54"/>
+    </linearGradient>
+    <radialGradient id="spec" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(94 72) rotate(49) scale(60 24)">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="20" y="0" width="200" height="220" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="18" flood-color="#0062A8" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="0.5" y="0.5" width="759" height="219" rx="44" fill="url(#bg)" stroke="#D7ECFF"/>
+  <g filter="url(#shadow)">
+    <path d="M124 28C124 28 72 86 72 132C72 171.765 95.8055 194 128 194C160.194 194 184 171.765 184 132C184 86 124 28 124 28Z" fill="url(#drop)" stroke="white" stroke-width="3"/>
+    <path d="M91 134C91 106 118 70 126 58C137 75 164 110 164 135C164 160 149 176 128 176C107 176 91 160 91 134Z" stroke="#76C7FF" stroke-opacity="0.45" stroke-width="2"/>
+    <path d="M82 122C93 126 105 127 118 122C136 115 150 116 166 124" stroke="#0EA5E9" stroke-opacity="0.22" stroke-width="12" stroke-linecap="round"/>
+    <ellipse cx="101" cy="72" rx="38" ry="18" transform="rotate(-42 101 72)" fill="url(#spec)"/>
+    <circle cx="155" cy="88" r="7" fill="#FFFFFF" fill-opacity="0.88"/>
+  </g>
+  <text x="248" y="132" fill="#06121F" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="70" font-weight="800" letter-spacing="-1">QuickLiquid</text>
+  <text x="251" y="171" fill="#42708F" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="600" letter-spacing="1.8">REFRACTIVE GLASS UI FOR REACT AND THE DOM</text>
+</svg>

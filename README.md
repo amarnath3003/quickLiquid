@@ -1,169 +1,319 @@
-# 💧 QuickLiquid
+<p align="center">
+  <img src="assets/quick-liquid-logo.svg" alt="QuickLiquid" width="760" />
+</p>
 
-[![NPM Version](https://img.shields.io/npm/v/quick-liquid?color=007AFF&style=flat-square)](https://www.npmjs.com/package/quick-liquid)
-[![Bundle Size](https://img.shields.io/bundlephobia/minzip/quick-liquid?color=34C759&style=flat-square)](https://bundlephobia.com/package/quick-liquid)
-[![License](https://img.shields.io/npm/l/quick-liquid?color=5856D6&style=flat-square)](https://github.com/amarnath3003/quickLiquid/blob/main/LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-FF9500?style=flat-square)](https://github.com/amarnath3003/quickLiquid/pulls)
+<p align="center">
+  <a href="https://www.npmjs.com/package/quick-liquid"><img alt="npm" src="https://img.shields.io/npm/v/quick-liquid?style=for-the-badge&color=0EA5E9"></a>
+  <a href="https://bundlephobia.com/package/quick-liquid"><img alt="bundle size" src="https://img.shields.io/bundlephobia/minzip/quick-liquid?style=for-the-badge&color=22C55E"></a>
+  <a href="https://www.npmjs.com/package/quick-liquid"><img alt="types" src="https://img.shields.io/npm/types/quick-liquid?style=for-the-badge&color=6366F1"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/npm/l/quick-liquid?style=for-the-badge&color=111827"></a>
+</p>
 
-> **Ultra-optimized Liquid Glass UI Framework.** Replicate Apple’s premium "liquid glass" visual effect with native refraction distortion, real-time light physics, and fluid spring animations at 60+ FPS.
+<p align="center">
+  <b>Apple-style liquid glass for React and vanilla JavaScript.</b><br />
+  Real SVG backdrop refraction, physical rim lighting, chromatic dispersion, spring gestures, and droplet-style merge animations.
+</p>
 
----
-
-## 📸 The Rendering Stack
-
-QuickLiquid achieves high-fidelity glass refraction by separating the visual layers and performing SVG-based lenticular coordinate warping on background pixels.
-
-```mermaid
-graph TD
-    A[Background Scene] --> B["Layer 0: .ql-lens (Refraction/Blur/Saturate)"]
-    B --> C["Layer 1: .ql-tint (Subtle Tint & Opacity)"]
-    C --> D["Layer 2: .ql-curvature (Convex-Lens Brightness Gradient)"]
-    D --> E["Layer 3: .ql-specular (Fresnel Crescent Highlight)"]
-    E --> F["Layer 4: .ql-rim (Gradient Border + Inner Rim Line)"]
-    F --> G["Layer 10: .ql-content (UI Children / Controls)"]
-    
-    style B fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
-    style E fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
-    style F fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-```
+<p align="center">
+  <a href="https://quickliquid.vercel.app"><b>Live demo</b></a>
+  &middot;
+  <a href="packages/quick-liquid/PHYSICS.md"><b>Physics notes</b></a>
+  &middot;
+  <a href="ROADMAP.md"><b>Roadmap</b></a>
+  &middot;
+  <a href="https://www.npmjs.com/package/quick-liquid"><b>npm</b></a>
+</p>
 
 ---
 
-## ✨ Features
+## Why QuickLiquid
 
-- **Exact Refraction (vector Snell's law):** the displacement field is ray-traced through a convex glass bezel — thickness, bezel width, and IOR are *physical* knobs, not art sliders. Full derivation in [PHYSICS.md](packages/quick-liquid/PHYSICS.md).
-- **Apple-signature lighting:** two-lobe conic rim light (bright at the light angle and its mirror) + soft bezel sheen — not a generic glassmorphism fog.
-- **Chromatic Aberration for free:** dispersion is a linear per-channel scale on one shared map — three `feDisplacementMap` scales, zero extra map generation.
-- **Heavily optimized map generation:** 1-D LUT reduction (no per-pixel trig), bezel-band-only iteration, 4-fold symmetry, shared refcounted map cache — 0.3–5 ms per unique geometry, same-size elements share one map.
-- **Minimal-loss encoding:** displacement maps are normalized to the full 8-bit range with `scale = 2·Δmax` + ordered dithering → quantization error ≈ 0.1 px, the theoretical minimum for 8-bit maps.
-- **Water Droplet Merging (Metaballs):** seamlessly blend and morph adjacent glass elements on the fly.
-- **React-First Integration:** full React wrapper with mount animations, jiggles, and gesture states.
+QuickLiquid is a small UI effects engine for building premium refractive surfaces: nav bars, command palettes, tab indicators, floating controls, cards, sheets, and glassy buttons. It works as a React component or as a framework-free DOM engine.
 
----
+<table>
+  <tr>
+    <td width="33%">
+      <p align="center"><img alt="01 optics" src="https://img.shields.io/badge/01-Optics-0EA5E9?style=for-the-badge"></p>
+      <b>Real refraction</b><br />
+      SVG displacement maps bend the backdrop through a convex glass bezel instead of faking the look with a flat translucent layer.
+    </td>
+    <td width="33%">
+      <p align="center"><img alt="02 motion" src="https://img.shields.io/badge/02-Motion-6366F1?style=for-the-badge"></p>
+      <b>Liquid response</b><br />
+      Press, bounce, jiggle, drag, mount, exit, and tab transitions use spring-based motion primitives.
+    </td>
+    <td width="33%">
+      <p align="center"><img alt="03 cache" src="https://img.shields.io/badge/03-Cache-22C55E?style=for-the-badge"></p>
+      <b>Built for reuse</b><br />
+      Same-size glass elements share one refcounted displacement map, and strength changes update filter attributes without rebuilding maps.
+    </td>
+  </tr>
+  <tr>
+    <td width="33%">
+      <p align="center"><img alt="04 color" src="https://img.shields.io/badge/04-Color-F59E0B?style=for-the-badge"></p>
+      <b>Chromatic edges</b><br />
+      Red, green, and blue channels can refract at slightly different scales for realistic prismatic rims.
+    </td>
+    <td width="33%">
+      <p align="center"><img alt="05 groups" src="https://img.shields.io/badge/05-Groups-EC4899?style=for-the-badge"></p>
+      <b>Droplet merging</b><br />
+      Grouped elements can form smooth metaball bridges as they approach each other.
+    </td>
+    <td width="33%">
+      <p align="center"><img alt="06 fallback" src="https://img.shields.io/badge/06-Fallback-64748B?style=for-the-badge"></p>
+      <b>Graceful fallback</b><br />
+      Chromium gets full SVG backdrop refraction. Other engines keep the frost, tint, shadow, and lighting layers.
+    </td>
+  </tr>
+</table>
 
-## 🚀 Installation
+## Install
 
 ```bash
 npm install quick-liquid
 ```
 
----
+Requirements:
 
-## 🛠️ Usage
+- Node 18+ for local builds
+- React 18+ only if you use `quick-liquid/react`
+- No stylesheet import required
 
-### ⚛️ React Integration
+## Quick Start
+
+### React
 
 ```tsx
 import { LiquidGlass } from 'quick-liquid/react';
 
-function Header() {
+export function CommandButton() {
   return (
     <LiquidGlass
       config={{
-        blur: 16,
-        refractionStrength: 24,
-        chromaticAberration: 0.1,
+        material: 'regular',
+        borderRadius: 24,
         dynamicLighting: true,
+        chromaticAberration: 0.22,
       }}
-      liquidPress // scale + bounce on click
-      animateIn={200} // fade/scale in after 200ms
-      className="glass-navbar"
+      liquidPress={{ scale: 0.92, squish: 0.03 }}
+      animateIn={120}
+      className="command-glass"
     >
-      <nav>
-        <span>Brand</span>
-        <button>Dashboard</button>
-      </nav>
+      <button type="button">Open Command Center</button>
     </LiquidGlass>
   );
 }
 ```
 
-### ⚡ Vanilla JS Integration
+### Vanilla DOM
 
-```javascript
+```ts
 import { LiquidGlassEngine } from 'quick-liquid';
 
-const el = document.querySelector('.glass-card');
-const engine = new LiquidGlassEngine(el, {
-  blur: 20,
-  saturation: 1.5,
-  refractionStrength: 30,
-  dynamicLighting: true
-});
+const card = document.querySelector<HTMLElement>('[data-liquid-card]');
 
-// Enable automatic liquid press physics
-engine.enableLiquidPress({ scale: 0.92, squish: 0.03 });
+if (card) {
+  const glass = new LiquidGlassEngine(card, {
+    material: 'clear',
+    refractionStrength: 28,
+    dynamicLighting: true,
+    quality: 'high',
+  });
+
+  glass.enableLiquidPress({ scale: 0.94, squish: 0.025 });
+}
 ```
 
----
+## Material Presets
 
-## 🎨 Physics Presets
+Start with a material and override only the knobs you need.
 
-QuickLiquid ships with curated defaults matching premium Apple-quality rendering modes.
+| Preset | Feel | Good for |
+| --- | --- | --- |
+| `clear` | Low blur, stronger lensing | Hero controls, dock-like UI, colorful backgrounds |
+| `thin` | Light frost, readable refraction | Toolbars, small buttons, chips |
+| `regular` | Balanced frost and depth | Cards, nav bars, command palettes |
+| `thick` | More blur and tint | Sheets, overlays, text-heavy surfaces |
+| `ultra` | Softest, most opaque | Large panels and modal backgrounds |
+| `adaptive` | Balanced preset with adaptive tint hook | Apps that feed their own environment color |
 
-| Preset | Blur | Refraction | Saturation | Tint Opacity | Use Case |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Crystal Clear** | `0px` | `40` | `1.4` | `0.05` | High-end visual elements |
-| **Frosted (Apple)** | `24px` | `18` | `1.8` | `0.15` | Default overlays and sheets |
-| **Vivid Glass** | `12px` | `35` | `2.2` | `0.10` | Highly colorful dashboards |
-| **Ultra Prismatic** | `8px` | `48` | `1.6` | `0.08` | Rich chromatic edge refraction |
+```ts
+const config = {
+  material: 'regular',
+  blur: 18,
+  refractionStrength: 20,
+  tintOpacity: 0.08,
+};
+```
 
----
-
-## ⚙️ Configuration API
-
-Configure the engine properties for the perfect balance of visual depth and rendering performance.
+## Configuration
 
 | Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `material` | `'clear' \| 'thin' \| 'regular' \| 'thick' \| 'ultra'` | — | Apple material preset (sets blur/tint/refraction together). |
-| `refractionStrength`| `number` | `22` | **Max rim displacement in px.** The physical falloff shape comes from `thickness`/`bezelWidth`/`ior`. |
-| `bezelWidth` | `number` | `34` | Width (px) of the curved bezel band where light bends. |
-| `thickness` | `number` | `24` | Glass slab depth (px) — shapes the displacement falloff and the shadow. |
-| `ior` | `number` | `1.5` | Index of refraction (1.4–1.6 = glass). |
-| `chromaticAberration`| `number` | `0.3` | 0–1 → per-channel dispersion split at the bezel. |
-| `blur` | `number` | `3` | Backdrop frost blur (px). `clear` ≈ 2, `regular` ≈ 14. |
+| --- | --- | --- | --- |
+| `material` | `'clear' \| 'thin' \| 'regular' \| 'thick' \| 'ultra' \| 'adaptive'` | unset | Applies a curated glass preset. Explicit values override preset values. |
+| `blur` | `number` | `3` | Backdrop frost blur in CSS pixels. |
 | `saturation` | `number` | `1.5` | Backdrop saturation boost through the glass. |
-| `lightAngle` | `number` | `-35` | Light direction in degrees (0 = top). |
-| `edgeHighlight` | `number` | `0.9` | Crisp two-lobe rim ring intensity. |
+| `tint` | `string` | `'255, 255, 255'` | RGB tint string. |
+| `tintOpacity` | `number` | `0.04` | Material tint opacity. |
+| `refractionStrength` | `number` | `22` | Maximum rim displacement in CSS pixels. |
+| `bezelWidth` | `number` | `34` | Width of the curved refractive bezel band. |
+| `thickness` | `number` | `24` | Virtual glass slab depth. |
+| `ior` | `number` | `1.5` | Index of refraction. |
+| `chromaticAberration` | `number` | `0.3` | Per-channel dispersion amount from `0` to `1`. |
+| `lightAngle` | `number` | `-35` | Light direction in degrees. |
+| `edgeHighlight` | `number` | `0.9` | Rim highlight intensity. |
 | `specularStrength` | `number` | `0.42` | Soft bezel sheen intensity. |
-| `fresnelPower` | `number` | `2.2` | Rim lobe tightness (1 wide … 5 tight). |
-| `tint` / `tintOpacity` | `string` / `number` | `'255,255,255'` / `0.04` | Material tint. Keep ≤ 0.05 for clear glass. |
-| `appearance` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Adapts glass to the backdrop **behind it**: dark swaps the default tint to deep smoke, derives rim/sheen intensity from backdrop luminance, and replaces the drop shadow with an ambient glow. `'auto'` follows `prefers-color-scheme` live. Pass `'dark'` explicitly for glass over a dark panel inside a light page. |
-| `backdropLuminance` | `number` | — | Measured backdrop luminance 0 (black) … 1 (white). Overrides the appearance-implied value for rim/sheen derivation — feed it from your own wallpaper sampling. |
-| `dynamicLighting` | `boolean`| `false` | Rim lobes follow the cursor. |
-| `quality` | `'high' \| 'medium' \| 'low'` | `'high'` | Displacement map resolution cap (1024/384/128 px). |
+| `fresnelPower` | `number` | `2.2` | Rim lobe sharpness. |
+| `hoverLighting` | `boolean` | `false` | Brightens the rim on hover. |
+| `cursorTracking` | `boolean` | `false` | Lets the rim light follow the pointer. |
+| `dynamicLighting` | `boolean` | `false` | Alias that enables cursor-driven lighting. |
+| `parallax` | `boolean` | `false` | Adds subtle pointer parallax. |
+| `elevation` | `number` | `1` | Shadow or ambient glow multiplier. |
+| `borderRadius` | `number` | `28` | Glass corner radius in CSS pixels. |
+| `quality` | `'high' \| 'medium' \| 'low'` | `'high'` | Displacement map resolution tier. |
+| `refractionMode` | `'auto' \| 'svg' \| 'css'` | `'auto'` | Choose full SVG refraction or CSS-only fallback. |
+| `appearance` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Adapts tint, lighting, and shadow for light or dark backdrops. |
+| `backdropLuminance` | `number` | unset | Optional `0..1` luminance hint for custom backdrop sampling. |
 
-**Browser notes:** the refraction path (`backdrop-filter: url()`) renders in Chromium; other engines gracefully fall back to frost + lighting. Two Chromium stacking pitfalls that silently disable refraction are documented in [VISUAL_QA_HANDOFF.md](VISUAL_QA_HANDOFF.md) — in short: never put `isolation`, `filter`, `opacity`, or `mask` on the glass host, and never give the lens layer an explicit `z-index`.
+## Animation API
 
----
+QuickLiquid exports the glass engine plus reusable animation primitives from `quick-liquid`.
 
-## 🌊 Advanced Animations
-
-### Metaball Groups (Water Droplet Merging)
-
-Create fluid glass blobs that combine automatically when they drift near each other:
-
-```typescript
-import { LiquidGroup, LiquidGesture } from 'quick-liquid';
-
-const container = document.querySelector('.merge-container');
-const group = new LiquidGroup(container, {
-  mergeDistance: 60,
-  blendRadius: 32,
-});
-
-document.querySelectorAll('.blob').forEach(blob => {
-  group.add(blob);
-
-  // Bind fluid drag animations
-  const gesture = new LiquidGesture(blob);
-  gesture.onDrag(() => group.updatePositions());
-});
+```ts
+import {
+  LiquidButton,
+  LiquidDrag,
+  LiquidGesture,
+  LiquidGroup,
+  LiquidTabBar,
+  Spring,
+} from 'quick-liquid';
 ```
 
----
+### Liquid buttons
 
-## 📄 License
+```ts
+import { LiquidButton } from 'quick-liquid';
 
-Distributed under the MIT License. See `LICENSE` for more information.
+const button = document.querySelector<HTMLElement>('.glass-button');
+
+if (button) {
+  new LiquidButton(button).onTap(() => {
+    console.log('Tapped');
+  });
+}
+```
+
+### Merging groups
+
+```ts
+import { LiquidGroup, LiquidGesture } from 'quick-liquid';
+
+const container = document.querySelector<HTMLElement>('.dock');
+const items = document.querySelectorAll<HTMLElement>('.dock-item');
+
+if (container) {
+  const group = new LiquidGroup(container, {
+    mergeDistance: 60,
+    blendRadius: 28,
+  });
+
+  items.forEach((item) => {
+    group.add(item);
+    new LiquidGesture(item).onDrag(() => group.updatePositions());
+  });
+}
+```
+
+### Liquid tab indicators
+
+```ts
+import { LiquidGlassEngine, LiquidTabBar } from 'quick-liquid';
+
+const nav = document.querySelector<HTMLElement>('.tabs');
+const tabs = [...document.querySelectorAll<HTMLElement>('.tab')];
+
+if (nav && tabs.length) {
+  const tabBar = new LiquidTabBar(nav, tabs, { spring: 'snappy' });
+
+  new LiquidGlassEngine(tabBar.getIndicator(), {
+    material: 'clear',
+    borderRadius: 999,
+  });
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => tabBar.select(index));
+  });
+}
+```
+
+## Import Map
+
+| Import | Exports |
+| --- | --- |
+| `quick-liquid` | `LiquidGlassEngine`, `DEFAULT_CONFIG`, `MATERIAL_PRESETS`, springs, gestures, transitions, morphing, groups, tab bar utilities |
+| `quick-liquid/react` | `LiquidGlass`, `LiquidGlassProps`, `LiquidGlassRef` |
+
+## Browser Notes
+
+The full refraction path depends on `backdrop-filter: url(...)`, which currently works in Chromium-based browsers. Safari and Firefox receive a CSS fallback with blur, saturation, tint, lighting, and shadow.
+
+For Chromium refraction, avoid these styles on the glass host element because they can prevent the browser from resolving the live backdrop:
+
+- `isolation`
+- `filter`
+- `opacity`
+- `mask`
+- explicit stacking changes on the internal lens layer
+
+See [VISUAL_QA_HANDOFF.md](VISUAL_QA_HANDOFF.md) for the visual QA notes and known stacking pitfalls.
+
+## Performance Model
+
+QuickLiquid is designed around a cache-first rendering path:
+
+- A 1-D lookup table reduces the physical refraction calculation.
+- Only the rounded bezel band is iterated when generating displacement maps.
+- Same-geometry elements share a refcounted map.
+- `refractionStrength` and chromatic aberration updates only change SVG filter scale attributes when geometry is unchanged.
+- `quality: 'medium'` or `quality: 'low'` can be used for dense lists or background UI.
+
+You can read live engine metrics:
+
+```ts
+const metrics = glass.getPerformanceMetrics();
+
+console.log(metrics.mapGenMs, metrics.mapPixelsComputed);
+```
+
+## Local Development
+
+```bash
+npm install
+npm run typecheck
+npm run build:lib
+npm run dev
+```
+
+Useful workspace scripts:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Starts the demo workspace. |
+| `npm run dev:landing` | Starts the landing/docs site. |
+| `npm run dev:compare` | Starts the comparison app. |
+| `npm run typecheck` | Type-checks `packages/quick-liquid`. |
+| `npm run build:lib` | Builds the library package with tsup. |
+| `npm run build` | Builds the library, demo, and landing site. |
+
+## Documentation
+
+- [Package README](packages/quick-liquid/README.md)
+- [Physics notes](packages/quick-liquid/PHYSICS.md)
+- [Optimization notes](packages/quick-liquid/OPTIMIZATION.md)
+- [Visual QA handoff](VISUAL_QA_HANDOFF.md)
+- [Roadmap](ROADMAP.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
