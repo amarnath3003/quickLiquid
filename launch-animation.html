@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="QuickLiquid cinematic launch demo using real LiquidGlassEngine surfaces."
+    />
+    <link rel="icon" href="data:," />
+    <title>QuickLiquid Cinematic Launch</title>
+    <style>
+      :root {
+        --ink: #eef8fa;
+        --muted: rgba(238, 248, 250, 0.68);
+        --faint: rgba(238, 248, 250, 0.42);
+        --line: rgba(210, 244, 248, 0.16);
+        --cyan: #9af2ff;
+        --mint: #7be5c9;
+        --lime: #b8fff0;
+        --rose: #ff4f9f;
+        --blue: #2576ff;
+        --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        --mono: "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100dvh;
+        overflow: hidden;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 50% -18%, rgba(154, 242, 255, 0.24), transparent 35rem),
+          radial-gradient(circle at 82% 28%, rgba(123, 229, 201, 0.15), transparent 28rem),
+          linear-gradient(180deg, #05080c, #081017 55%, #04070b);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .screen {
+        display: grid;
+        place-items: center;
+        min-height: 100dvh;
+        padding: clamp(14px, 3vw, 34px);
+      }
+
+      .film {
+        position: relative;
+        width: min(1440px, 100%);
+        aspect-ratio: 16 / 9;
+        min-height: min(760px, calc(100dvh - 96px));
+        overflow: hidden;
+        border: 1px solid rgba(213, 235, 238, 0.16);
+        border-radius: clamp(18px, 2.5vw, 36px);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.035), transparent 30%),
+          linear-gradient(145deg, #111922 0%, #081017 54%, #0c1c1a 100%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          0 34px 110px rgba(0, 0, 0, 0.45);
+      }
+
+      .film::before {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        z-index: 55;
+        pointer-events: none;
+        border: 1px solid rgba(237, 247, 248, 0.08);
+        border-radius: calc(clamp(18px, 2.5vw, 36px) - 8px);
+      }
+
+      .wallpaper,
+      .motion-field,
+      .grain,
+      .vignette,
+      .chapter,
+      .brand,
+      .controls,
+      .timeline {
+        position: absolute;
+      }
+
+      .wallpaper,
+      .motion-field,
+      .grain,
+      .vignette,
+      .chapter {
+        inset: 0;
+      }
+
+      .wallpaper,
+      .motion-field,
+      .grain,
+      .vignette {
+        pointer-events: none;
+      }
+
+      .wallpaper {
+        z-index: 0;
+        overflow: hidden;
+      }
+
+      .wallpaper::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.62;
+        background-image:
+          linear-gradient(rgba(180, 232, 238, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(180, 232, 238, 0.08) 1px, transparent 1px);
+        background-size: 54px 54px;
+        mask-image: radial-gradient(ellipse 82% 66% at 50% 38%, #000 28%, transparent 78%);
+      }
+
+      .band {
+        position: absolute;
+        width: 42%;
+        height: 8.5%;
+        border-radius: 999px;
+        opacity: 0.9;
+        filter: saturate(1.12);
+        animation: band-drift 12s ease-in-out infinite alternate;
+      }
+
+      .band-a {
+        left: -5%;
+        top: 16%;
+        background: linear-gradient(90deg, #ff3b72, #ffb340);
+        transform: rotate(-8deg);
+      }
+
+      .band-b {
+        right: -8%;
+        top: 26%;
+        background: linear-gradient(90deg, #2576ff, #62d5ff);
+        transform: rotate(12deg);
+        animation-delay: -4s;
+      }
+
+      .band-c {
+        left: 10%;
+        bottom: 16%;
+        background: linear-gradient(90deg, #25d98a, #c7ff63);
+        transform: rotate(8deg);
+        animation-delay: -8s;
+      }
+
+      .band-d {
+        right: 8%;
+        bottom: 9%;
+        background: linear-gradient(90deg, #ff4f9f, #8d63ff);
+        transform: rotate(-7deg);
+        animation-delay: -2s;
+      }
+
+      @keyframes band-drift {
+        from {
+          translate: 0 0;
+        }
+        to {
+          translate: 24px -18px;
+        }
+      }
+
+      .motion-field {
+        z-index: 1;
+      }
+
+      .ticker {
+        position: absolute;
+        left: -12%;
+        display: flex;
+        width: max-content;
+        gap: 0.46em;
+        white-space: nowrap;
+        color: rgba(238, 248, 250, 0.2);
+        font-size: clamp(48px, 8vw, 120px);
+        font-weight: 790;
+        letter-spacing: -0.06em;
+        line-height: 1;
+        animation: ticker 18s linear infinite;
+      }
+
+      .ticker.top {
+        top: 13%;
+      }
+
+      .ticker.bottom {
+        bottom: 15%;
+        animation-direction: reverse;
+      }
+
+      .ticker i {
+        color: rgba(154, 242, 255, 0.38);
+        font-style: normal;
+      }
+
+      @keyframes ticker {
+        to {
+          transform: translateX(-36%);
+        }
+      }
+
+      .ball {
+        position: absolute;
+        border-radius: 999px;
+        box-shadow: 0 16px 54px rgba(0, 0, 0, 0.22);
+        animation: ball-drift 7s ease-in-out infinite alternate;
+      }
+
+      .ball-a {
+        left: 9%;
+        top: 48%;
+        width: 58px;
+        height: 58px;
+        background: radial-gradient(circle at 32% 28%, #ff9dbd, #ff3b72);
+      }
+
+      .ball-b {
+        left: 68%;
+        top: 18%;
+        width: 42px;
+        height: 42px;
+        background: radial-gradient(circle at 32% 28%, #9ed9ff, #2576ff);
+        animation-delay: -2s;
+      }
+
+      .ball-c {
+        left: 48%;
+        bottom: 19%;
+        width: 50px;
+        height: 50px;
+        background: radial-gradient(circle at 32% 28%, #a4ffd8, #25d98a);
+        animation-delay: -4s;
+      }
+
+      @keyframes ball-drift {
+        to {
+          translate: 180px -84px;
+        }
+      }
+
+      .vignette {
+        z-index: 2;
+        background:
+          radial-gradient(ellipse 80% 72% at 50% 42%, transparent 34%, rgba(2, 5, 8, 0.28) 100%),
+          linear-gradient(90deg, rgba(2, 5, 8, 0.34), transparent 22%, transparent 78%, rgba(2, 5, 8, 0.34));
+      }
+
+      .grain {
+        z-index: 70;
+        opacity: 0.026;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      }
+
+      .brand {
+        z-index: 35;
+        top: clamp(24px, 3vw, 42px);
+        left: clamp(24px, 3vw, 42px);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand img {
+        display: block;
+        width: clamp(156px, 14vw, 230px);
+        height: auto;
+      }
+
+      .brand-tag {
+        height: 30px;
+        padding: 0 13px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgba(237, 247, 248, 0.05);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        display: inline-grid;
+        place-items: center;
+      }
+
+      .chapter {
+        z-index: 20;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(18px);
+        transition:
+          opacity 720ms ease,
+          transform 900ms cubic-bezier(0.2, 0.9, 0.2, 1);
+      }
+
+      .film.is-seeking .chapter {
+        transition: none !important;
+      }
+
+      .film[data-chapter="brand"] .chapter-brand,
+      .film[data-chapter="optics"] .chapter-optics,
+      .film[data-chapter="surfaces"] .chapter-surfaces,
+      .film[data-chapter="materials"] .chapter-materials,
+      .film[data-chapter="motion"] .chapter-motion,
+      .film[data-chapter="performance"] .chapter-performance,
+      .film[data-chapter="final"] .chapter-final {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .copy {
+        position: absolute;
+        z-index: 30;
+        left: clamp(28px, 6vw, 90px);
+        top: 52%;
+        width: min(640px, 46vw);
+        transform: translateY(-50%);
+      }
+
+      .kicker {
+        margin: 0 0 18px;
+        color: var(--mint);
+        font-family: var(--mono);
+        font-size: clamp(11px, 1vw, 13px);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        max-width: 10.4ch;
+        font-size: clamp(54px, 7vw, 108px);
+        line-height: 0.9;
+        letter-spacing: -0.07em;
+        font-weight: 790;
+      }
+
+      h1 span,
+      h2 span,
+      .accent {
+        color: transparent;
+        background: linear-gradient(96deg, var(--cyan), var(--mint));
+        -webkit-background-clip: text;
+        background-clip: text;
+      }
+
+      .subline {
+        max-width: 45ch;
+        margin: 22px 0 0;
+        color: var(--muted);
+        font-size: clamp(15px, 1.35vw, 20px);
+        line-height: 1.52;
+      }
+
+      .glass {
+        position: absolute;
+        color: rgba(238, 248, 250, 0.9);
+      }
+
+      .glass > * {
+        position: relative;
+        z-index: 10;
+      }
+
+      .hero-droplet {
+        left: 50%;
+        top: 50%;
+        width: min(25vw, 350px);
+        height: min(25vw, 350px);
+        border-radius: 999px;
+        transform: translate(-50%, -50%);
+        animation: droplet-arrive 4400ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+      }
+
+      .hero-droplet > div,
+      .sweep-lens > div,
+      .final-lens > div {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 36px;
+        text-align: center;
+      }
+
+      .droplet-label {
+        display: grid;
+        gap: 9px;
+        color: var(--ink);
+      }
+
+      .droplet-label strong {
+        font-size: clamp(26px, 3vw, 44px);
+        line-height: 0.92;
+        letter-spacing: -0.055em;
+      }
+
+      .droplet-label span {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      @keyframes droplet-arrive {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.42);
+          filter: blur(12px);
+        }
+        58% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.08);
+          filter: blur(0);
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      .sweep-lens {
+        left: 11%;
+        top: 49%;
+        width: min(37vw, 520px);
+        height: min(37vw, 520px);
+        border-radius: 999px;
+        transform: translateY(-50%);
+        animation: lens-sweep 6800ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+      }
+
+      @keyframes lens-sweep {
+        0% {
+          opacity: 0;
+          transform: translate(-160px, -50%) scale(0.78);
+        }
+        15% {
+          opacity: 1;
+        }
+        52% {
+          transform: translate(46vw, -50%) scale(1.08);
+        }
+        100% {
+          opacity: 1;
+          transform: translate(38vw, -50%) scale(0.92);
+        }
+      }
+
+      .optic-terms {
+        position: absolute;
+        left: clamp(28px, 6vw, 90px);
+        right: clamp(28px, 6vw, 90px);
+        bottom: clamp(44px, 7vw, 78px);
+        z-index: 24;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+
+      .term {
+        min-height: 78px;
+        padding: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .term b {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--ink);
+        font-size: 16px;
+      }
+
+      .term span {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+
+      .surface-nav {
+        left: clamp(38px, 7vw, 112px);
+        top: clamp(100px, 10vw, 136px);
+        width: min(560px, 40vw);
+        min-height: 72px;
+        border-radius: 999px;
+      }
+
+      .surface-nav > div {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        padding: 0 26px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .surface-nav b {
+        color: var(--ink);
+        margin-right: auto;
+        font-size: 18px;
+      }
+
+      .command-panel {
+        right: clamp(42px, 7vw, 116px);
+        top: clamp(128px, 18vw, 184px);
+        width: min(42vw, 570px);
+        height: 360px;
+        border-radius: 32px;
+      }
+
+      .command-panel > div {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 28px;
+      }
+
+      .panel-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .panel-title {
+        max-width: 11ch;
+        margin-top: 34px;
+        font-size: clamp(32px, 3.4vw, 52px);
+        line-height: 0.94;
+        letter-spacing: -0.055em;
+        font-weight: 760;
+      }
+
+      .panel-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: auto;
+      }
+
+      .panel-chip {
+        min-height: 62px;
+        padding: 13px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.055);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .panel-chip b {
+        display: block;
+        color: var(--ink);
+        font-size: 18px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        margin-bottom: 5px;
+      }
+
+      .surface-card {
+        left: clamp(44px, 7vw, 120px);
+        bottom: clamp(48px, 8vw, 96px);
+        width: min(320px, 24vw);
+        height: 210px;
+        border-radius: 30px;
+      }
+
+      .surface-card > div {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        padding: 24px;
+      }
+
+      .surface-card strong {
+        font-size: 24px;
+        letter-spacing: -0.04em;
+      }
+
+      .surface-card span {
+        color: var(--muted);
+        margin-top: 9px;
+        line-height: 1.45;
+      }
+
+      .dock {
+        right: clamp(48px, 8vw, 128px);
+        bottom: clamp(44px, 7vw, 84px);
+        display: flex;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 999px;
+      }
+
+      .dock-item {
+        position: relative;
+        width: 58px;
+        height: 58px;
+        border-radius: 999px;
+      }
+
+      .dock-item > div {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        color: rgba(238, 248, 250, 0.86);
+        font-size: 18px;
+        font-weight: 760;
+      }
+
+      .material-stage {
+        position: absolute;
+        inset: clamp(110px, 12vw, 144px) clamp(40px, 7vw, 110px) clamp(60px, 8vw, 100px);
+        display: grid;
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
+        gap: 16px;
+        align-items: stretch;
+      }
+
+      .material-card {
+        position: relative;
+        min-height: 390px;
+        border-radius: 32px;
+      }
+
+      .material-card > div {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        padding: 24px;
+      }
+
+      .material-card b {
+        font-size: clamp(22px, 2.1vw, 32px);
+        letter-spacing: -0.05em;
+        text-transform: capitalize;
+      }
+
+      .material-card span {
+        margin-top: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .motion-layout {
+        position: absolute;
+        inset: clamp(116px, 13vw, 150px) clamp(42px, 7vw, 116px) clamp(56px, 7vw, 86px);
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 26px;
+        align-items: stretch;
+      }
+
+      .motion-card {
+        position: relative;
+        border-radius: 34px;
+      }
+
+      .motion-card > div {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .tabs-wrap {
+        position: relative;
+        width: min(620px, 100%);
+        height: 66px;
+        border-radius: 999px;
+      }
+
+      .tabs {
+        position: relative;
+        display: flex;
+        height: 100%;
+        gap: 3px;
+        padding: 8px;
+        border-radius: inherit;
+      }
+
+      .tab {
+        position: relative;
+        z-index: 2;
+        min-width: 110px;
+        border: 0;
+        border-radius: 999px;
+        color: rgba(238, 248, 250, 0.62);
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .tab.active {
+        color: var(--ink);
+      }
+
+      .droplet-field {
+        position: relative;
+        min-height: 100%;
+        border-radius: 34px;
+        overflow: hidden;
+      }
+
+      .merge-blob {
+        width: 96px;
+        height: 96px;
+        border-radius: 999px;
+      }
+
+      .merge-blob > div {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        font-weight: 780;
+      }
+
+      .blob-a {
+        left: 18%;
+        top: 34%;
+      }
+
+      .blob-b {
+        left: 40%;
+        top: 47%;
+      }
+
+      .blob-c {
+        left: 64%;
+        top: 34%;
+      }
+
+      .film[data-chapter="motion"] .blob-a {
+        animation: blob-a 7600ms ease-in-out infinite alternate;
+      }
+
+      .film[data-chapter="motion"] .blob-b {
+        animation: blob-b 7200ms ease-in-out infinite alternate;
+      }
+
+      .film[data-chapter="motion"] .blob-c {
+        animation: blob-c 7800ms ease-in-out infinite alternate;
+      }
+
+      @keyframes blob-a {
+        to {
+          transform: translate(80px, 24px);
+        }
+      }
+
+      @keyframes blob-b {
+        to {
+          transform: translate(-12px, -46px) scale(1.08);
+        }
+      }
+
+      @keyframes blob-c {
+        to {
+          transform: translate(-90px, 30px);
+        }
+      }
+
+      .performance-grid {
+        position: absolute;
+        inset: clamp(128px, 14vw, 162px) clamp(52px, 8vw, 130px) clamp(60px, 8vw, 98px);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+
+      .chapter-materials .copy,
+      .chapter-motion .copy,
+      .chapter-performance .copy {
+        width: min(450px, 32vw);
+      }
+
+      .chapter-materials .material-stage {
+        left: 35%;
+        right: clamp(42px, 7vw, 110px);
+        top: clamp(170px, 18vw, 220px);
+        bottom: clamp(70px, 8vw, 98px);
+        grid-template-columns: repeat(5, minmax(100px, 1fr));
+      }
+
+      .chapter-surfaces .surface-card {
+        left: 39%;
+        bottom: clamp(56px, 8vw, 96px);
+      }
+
+      .chapter-motion .motion-layout {
+        left: 46%;
+        right: clamp(42px, 7vw, 110px);
+        top: clamp(162px, 18vw, 210px);
+        bottom: clamp(72px, 8vw, 104px);
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .chapter-performance .performance-grid {
+        left: 36%;
+        right: clamp(42px, 7vw, 110px);
+        top: clamp(170px, 18vw, 220px);
+        bottom: clamp(70px, 8vw, 98px);
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .film.is-seeking .hero-droplet {
+        animation: none !important;
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        filter: none;
+      }
+
+      .film.is-seeking .sweep-lens {
+        animation: none !important;
+        opacity: 1;
+        transform: translate(43vw, -50%) scale(1);
+        filter: none;
+      }
+
+      .perf-card {
+        position: relative;
+        min-height: 190px;
+        border-radius: 28px;
+      }
+
+      .perf-card > div {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        padding: 22px;
+      }
+
+      .perf-card strong {
+        color: var(--lime);
+        font-size: clamp(38px, 4vw, 64px);
+        line-height: 0.9;
+        letter-spacing: -0.06em;
+      }
+
+      .perf-card span {
+        color: var(--muted);
+        margin-top: 12px;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      .final-wrap {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 48px;
+      }
+
+      .final-lens {
+        left: 50%;
+        top: 50%;
+        width: min(42vw, 560px);
+        height: min(42vw, 560px);
+        border-radius: 999px;
+        transform: translate(-50%, -50%);
+      }
+
+      .final-copy {
+        position: relative;
+        z-index: 30;
+        display: grid;
+        justify-items: center;
+        gap: 18px;
+      }
+
+      .final-copy img {
+        width: min(420px, 56vw);
+        height: auto;
+      }
+
+      .final-copy h2 {
+        max-width: 12ch;
+        font-size: clamp(48px, 6vw, 92px);
+      }
+
+      .install-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        height: 52px;
+        padding: 0 20px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(238, 248, 250, 0.06);
+        color: var(--ink);
+        font-family: var(--mono);
+        font-size: 14px;
+      }
+
+      .chapter-label {
+        position: absolute;
+        z-index: 40;
+        left: clamp(26px, 4vw, 56px);
+        bottom: clamp(24px, 4vw, 44px);
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .timeline {
+        z-index: 45;
+        left: clamp(26px, 4vw, 56px);
+        right: clamp(26px, 4vw, 56px);
+        bottom: clamp(52px, 5vw, 72px);
+        height: 2px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(238, 248, 250, 0.12);
+      }
+
+      .timeline i {
+        display: block;
+        width: 100%;
+        height: 100%;
+        transform-origin: left;
+        transform: scaleX(0);
+        background: linear-gradient(90deg, var(--cyan), var(--mint));
+      }
+
+      .controls {
+        z-index: 80;
+        right: clamp(18px, 3vw, 34px);
+        bottom: clamp(14px, 2vw, 28px);
+        display: flex;
+        gap: 10px;
+      }
+
+      .control-button {
+        min-height: 42px;
+        padding: 0 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--ink);
+        background: rgba(237, 247, 248, 0.06);
+        cursor: pointer;
+      }
+
+      .control-button:hover {
+        background: rgba(237, 247, 248, 0.12);
+      }
+
+      @media (max-width: 980px) {
+        body {
+          overflow: auto;
+        }
+
+        .screen {
+          padding: 10px;
+        }
+
+        .film {
+          aspect-ratio: auto;
+          min-height: 880px;
+        }
+
+        .brand-tag,
+        .surface-nav,
+        .dock,
+        .optic-terms {
+          display: none;
+        }
+
+        .brand img {
+          width: 150px;
+        }
+
+        .copy {
+          left: 28px;
+          right: 28px;
+          top: 26%;
+          width: auto;
+        }
+
+        h1,
+        h2 {
+          max-width: 10.5ch;
+          font-size: clamp(46px, 12vw, 78px);
+        }
+
+        .hero-droplet,
+        .sweep-lens,
+        .final-lens {
+          left: 50%;
+          top: 62%;
+          width: min(72vw, 340px);
+          height: min(72vw, 340px);
+          transform: translate(-50%, -50%);
+          animation: none;
+        }
+
+        .command-panel,
+        .surface-card {
+          left: 22px;
+          right: 22px;
+          top: auto;
+          bottom: 116px;
+          width: auto;
+          height: 286px;
+        }
+
+        .panel-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .material-stage,
+        .motion-layout,
+        .performance-grid {
+          inset: 146px 22px 94px;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        .material-card,
+        .perf-card {
+          min-height: 160px;
+        }
+
+        .motion-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .tabs-wrap {
+          height: 64px;
+        }
+
+        .tabs {
+          overflow-x: auto;
+        }
+
+        .tab {
+          min-width: 92px;
+        }
+
+        .chapter-label,
+        .timeline {
+          display: none;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .film {
+          min-height: 840px;
+          border-radius: 20px;
+        }
+
+        .film::before {
+          inset: 10px;
+          border-radius: 14px;
+        }
+
+        .copy {
+          top: 25%;
+        }
+
+        .subline {
+          font-size: 16px;
+        }
+
+        .material-stage,
+        .performance-grid {
+          grid-template-columns: 1fr;
+          overflow: hidden;
+        }
+
+        .material-card:nth-child(n + 4),
+        .perf-card:nth-child(n + 4) {
+          display: none;
+        }
+
+        .controls {
+          display: none;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen">
+      <section class="film" id="film" data-chapter="brand" aria-label="QuickLiquid cinematic launch demo">
+        <div class="wallpaper" aria-hidden>
+          <i class="band band-a"></i>
+          <i class="band band-b"></i>
+          <i class="band band-c"></i>
+          <i class="band band-d"></i>
+        </div>
+        <div class="motion-field" aria-hidden>
+          <div class="ticker top">
+            <span>refraction <i>/</i> live pixels <i>/</i> spring glass <i>/</i></span>
+            <span>refraction <i>/</i> live pixels <i>/</i> spring glass <i>/</i></span>
+          </div>
+          <div class="ticker bottom">
+            <span>chromatic rim <i>/</i> cached maps <i>/</i> liquid UI <i>/</i></span>
+            <span>chromatic rim <i>/</i> cached maps <i>/</i> liquid UI <i>/</i></span>
+          </div>
+          <i class="ball ball-a"></i>
+          <i class="ball ball-b"></i>
+          <i class="ball ball-c"></i>
+        </div>
+
+        <header class="brand">
+          <img src="assets/quick-liquid-logo.svg" alt="QuickLiquid" />
+          <span class="brand-tag">cinematic launch</span>
+        </header>
+
+        <section class="chapter chapter-brand">
+          <article class="copy">
+            <p class="kicker">Introducing QuickLiquid</p>
+            <h1>Liquid glass for the <span>web.</span></h1>
+            <p class="subline">A real refractive UI engine for React and vanilla JavaScript.</p>
+          </article>
+          <div class="glass ql-real hero-droplet" data-glass="heroLens">
+            <div class="droplet-label">
+              <strong>Light becomes interface.</strong>
+              <span>real engine surface</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="chapter chapter-optics">
+          <article class="copy">
+            <p class="kicker">Optics, not overlay</p>
+            <h2>Pixels bend through a <span>live</span> lens.</h2>
+            <p class="subline">SVG displacement maps refract moving type, grid lines, color bands and UI beneath the glass.</p>
+          </article>
+          <div class="glass ql-real sweep-lens" data-glass="sweepLens">
+            <div class="droplet-label">
+              <strong>Refraction you can see.</strong>
+              <span>clear material</span>
+            </div>
+          </div>
+          <div class="optic-terms" aria-hidden>
+            <div class="term"><b>Bezel</b><span>curved rim</span></div>
+            <div class="term"><b>IOR</b><span>glass index</span></div>
+            <div class="term"><b>Prism</b><span>RGB split</span></div>
+            <div class="term"><b>Frost</b><span>readable blur</span></div>
+          </div>
+        </section>
+
+        <section class="chapter chapter-surfaces">
+          <article class="copy">
+            <p class="kicker">Full UI surfaces</p>
+            <h2>Nav, cards, dock and command <span>glass.</span></h2>
+            <p class="subline">Every visible surface in this scene is initialized with LiquidGlassEngine.</p>
+          </article>
+          <nav class="glass ql-real surface-nav" data-glass="nav">
+            <div><b>QuickLiquid</b><span>Docs</span><span>API</span><span>GitHub</span></div>
+          </nav>
+          <section class="glass ql-real command-panel" data-glass="panel">
+            <div>
+              <div class="panel-top"><span>command center</span><span>60 FPS</span></div>
+              <div class="panel-title">A complete glass surface.</div>
+              <div class="panel-grid">
+                <div class="panel-chip"><b>SVG</b>refraction</div>
+                <div class="panel-chip"><b>RGB</b>rim split</div>
+                <div class="panel-chip"><b>Spring</b>press feel</div>
+              </div>
+            </div>
+          </section>
+          <div class="glass ql-real surface-card" data-glass="card">
+            <div><strong>Floating controls</strong><span>Premium panels, sheets, cards and pills.</span></div>
+          </div>
+          <div class="glass ql-real dock" data-glass="dock" aria-label="Liquid glass dock">
+            <div class="glass ql-real dock-item" data-glass="dockItem"><div>Q</div></div>
+            <div class="glass ql-real dock-item" data-glass="dockItem"><div>L</div></div>
+            <div class="glass ql-real dock-item" data-glass="dockItem"><div>G</div></div>
+            <div class="glass ql-real dock-item" data-glass="dockItem"><div>O</div></div>
+          </div>
+        </section>
+
+        <section class="chapter chapter-materials">
+          <article class="copy">
+            <p class="kicker">Material presets</p>
+            <h2>From clear lens to <span>soft</span> frost.</h2>
+            <p class="subline">Five live engine presets, large enough to inspect after recording.</p>
+          </article>
+          <div class="material-stage">
+            <div class="glass ql-real material-card" data-glass="clear"><div><b>clear</b><span>strong lensing</span></div></div>
+            <div class="glass ql-real material-card" data-glass="thin"><div><b>thin</b><span>light frost</span></div></div>
+            <div class="glass ql-real material-card" data-glass="regular"><div><b>regular</b><span>balanced</span></div></div>
+            <div class="glass ql-real material-card" data-glass="thick"><div><b>thick</b><span>deep tint</span></div></div>
+            <div class="glass ql-real material-card" data-glass="ultra"><div><b>ultra</b><span>softest</span></div></div>
+          </div>
+        </section>
+
+        <section class="chapter chapter-motion">
+          <article class="copy">
+            <p class="kicker">Liquid motion</p>
+            <h2>Spring gestures and <span>flowing</span> state.</h2>
+            <p class="subline">Tabs stretch, droplets merge, buttons press, and glass keeps refracting while it moves.</p>
+          </article>
+          <div class="motion-layout">
+            <div class="glass ql-real motion-card" data-glass="panel">
+              <div>
+                <nav class="glass ql-real tabs-wrap" data-glass="tabs" aria-label="Liquid tab demo">
+                  <div class="tabs" id="tabs">
+                    <button class="tab active" type="button">Lens</button>
+                    <button class="tab" type="button">Panel</button>
+                    <button class="tab" type="button">Dock</button>
+                    <button class="tab" type="button">Cards</button>
+                  </div>
+                </nav>
+              </div>
+            </div>
+            <div class="droplet-field" id="droplet-field">
+              <div class="glass ql-real merge-blob blob-a" data-glass="blob"><div>A</div></div>
+              <div class="glass ql-real merge-blob blob-b" data-glass="blob"><div>B</div></div>
+              <div class="glass ql-real merge-blob blob-c" data-glass="blob"><div>C</div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="chapter chapter-performance">
+          <article class="copy">
+            <p class="kicker">Cache-first renderer</p>
+            <h2>Built for repeated <span>glass.</span></h2>
+            <p class="subline">Same-size elements share maps, strength changes update filter attributes, and quality tiers keep dense scenes practical.</p>
+          </article>
+          <div class="performance-grid">
+            <div class="glass ql-real perf-card" data-glass="perf"><div><strong>1x</strong><span>shared map per matching geometry</span></div></div>
+            <div class="glass ql-real perf-card" data-glass="perf"><div><strong>3</strong><span>quality tiers for dense UI</span></div></div>
+            <div class="glass ql-real perf-card" data-glass="perf"><div><strong>0</strong><span>stylesheet imports required</span></div></div>
+            <div class="glass ql-real perf-card" data-glass="perf"><div><strong>2</strong><span>React and DOM engine surfaces</span></div></div>
+          </div>
+        </section>
+
+        <section class="chapter chapter-final">
+          <div class="final-wrap">
+            <div class="glass ql-real final-lens" data-glass="heroLens"><div></div></div>
+            <div class="final-copy">
+              <img src="assets/quick-liquid-logo.svg" alt="QuickLiquid" />
+              <h2>Liquid glass for React and vanilla JavaScript.</h2>
+              <div class="install-pill">npm install quick-liquid</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="timeline" aria-hidden><i id="progress"></i></div>
+        <div class="chapter-label" id="chapter-label">00 / Brand reveal</div>
+        <div class="controls" aria-label="Playback controls">
+          <button class="control-button" id="pause" type="button">Pause</button>
+          <button class="control-button" id="restart" type="button">Restart</button>
+        </div>
+        <div class="vignette" aria-hidden></div>
+        <div class="grain" aria-hidden></div>
+      </section>
+    </main>
+
+    <script type="module">
+      import {
+        LiquidGlassEngine,
+        LiquidGesture,
+        LiquidGroup,
+        LiquidTabBar,
+      } from "./packages/quick-liquid/dist/index.mjs";
+
+      const film = document.querySelector("#film");
+      const progress = document.querySelector("#progress");
+      const pauseButton = document.querySelector("#pause");
+      const restartButton = document.querySelector("#restart");
+      const chapterLabel = document.querySelector("#chapter-label");
+      const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const engines = [];
+      const disposables = [];
+      const animations = [];
+
+      const base = {
+        quality: "high",
+        refractionMode: "svg",
+        appearance: "dark",
+        dynamicLighting: true,
+        cursorTracking: true,
+        hoverLighting: false,
+        parallax: false,
+        chromaticAberration: 0.34,
+        tint: "255, 255, 255",
+      };
+
+      const configs = {
+        heroLens: {
+          ...base,
+          material: "clear",
+          borderRadius: 999,
+          blur: 1.4,
+          tintOpacity: 0.018,
+          refractionStrength: 36,
+          bezelWidth: 58,
+          thickness: 40,
+          edgeHighlight: 1,
+          specularStrength: 0.58,
+        },
+        sweepLens: {
+          ...base,
+          material: "clear",
+          borderRadius: 999,
+          blur: 1.2,
+          tintOpacity: 0.014,
+          refractionStrength: 38,
+          bezelWidth: 58,
+          thickness: 42,
+          edgeHighlight: 1,
+          specularStrength: 0.62,
+        },
+        nav: { ...base, material: "thin", borderRadius: 999, refractionStrength: 18, tintOpacity: 0.065 },
+        panel: { ...base, material: "regular", borderRadius: 32, refractionStrength: 22, tintOpacity: 0.085 },
+        card: { ...base, material: "regular", borderRadius: 30, refractionStrength: 18, tintOpacity: 0.08 },
+        dock: { ...base, material: "thin", borderRadius: 999, refractionStrength: 18, tintOpacity: 0.065 },
+        dockItem: { ...base, material: "clear", borderRadius: 999, refractionStrength: 24, tintOpacity: 0.03, bezelWidth: 28 },
+        tabs: { ...base, material: "thin", borderRadius: 999, refractionStrength: 16, tintOpacity: 0.06 },
+        blob: { ...base, material: "clear", borderRadius: 999, refractionStrength: 26, tintOpacity: 0.025, bezelWidth: 34 },
+        perf: { ...base, material: "regular", borderRadius: 28, refractionStrength: 16, tintOpacity: 0.08 },
+        clear: { ...base, material: "clear", borderRadius: 32, refractionStrength: 34, tintOpacity: 0.016 },
+        thin: { ...base, material: "thin", borderRadius: 32 },
+        regular: { ...base, material: "regular", borderRadius: 32 },
+        thick: { ...base, material: "thick", borderRadius: 32 },
+        ultra: { ...base, material: "ultra", borderRadius: 32 },
+      };
+
+      const chapters = [
+        { at: 0, key: "brand", label: "00 / Brand reveal", tab: 0 },
+        { at: 5000, key: "optics", label: "01 / Optics reveal", tab: 0 },
+        { at: 12000, key: "surfaces", label: "02 / Full UI surfaces", tab: 1 },
+        { at: 20000, key: "materials", label: "03 / Material presets", tab: 3 },
+        { at: 28000, key: "motion", label: "04 / Liquid motion", tab: 2 },
+        { at: 36000, key: "performance", label: "05 / Cache-first renderer", tab: 3 },
+        { at: 42000, key: "final", label: "06 / Ship QuickLiquid", tab: 0 },
+      ];
+
+      const duration = 45000;
+      const queryTime = new URLSearchParams(location.search).get("t");
+      let start = performance.now() - (queryTime ? Number(queryTime) : 0);
+      let paused = Boolean(queryTime) || reduceMotion;
+      let pauseOffset = queryTime ? Number(queryTime) : reduceMotion ? 43000 : 0;
+      let current = "";
+      let tabsApi = null;
+
+      if (queryTime || reduceMotion) film.classList.add("is-seeking");
+
+      function initGlass() {
+        document.querySelectorAll(".ql-real").forEach((el) => {
+          const type = el.dataset.glass || "panel";
+          const engine = new LiquidGlassEngine(el, configs[type] || configs.panel);
+          engines.push(engine);
+          if (!el.classList.contains("tabs-wrap") && !el.classList.contains("dock") && !el.classList.contains("motion-card")) {
+            engine.enableLiquidPress({ scale: 0.93, squish: 0.025 });
+          }
+        });
+      }
+
+      function initTabs() {
+        const tabs = document.querySelector("#tabs");
+        const items = [...tabs.querySelectorAll(".tab")];
+        const tabBar = new LiquidTabBar(tabs, items, { spring: "snappy" });
+        const indicator = tabBar.getIndicator();
+        indicator.classList.add("glass", "ql-tab-glass");
+        indicator.style.zIndex = "1";
+        engines.push(new LiquidGlassEngine(indicator, configs.blob));
+        items.forEach((item, index) => {
+          item.addEventListener("click", () => selectTab(index));
+        });
+        disposables.push(tabBar);
+        return { tabBar, items };
+      }
+
+      function selectTab(index) {
+        if (!tabsApi) return;
+        tabsApi.items.forEach((tab) => tab.classList.remove("active"));
+        tabsApi.items[index]?.classList.add("active");
+        tabsApi.tabBar.select(index);
+      }
+
+      function initMotion() {
+        const dockItems = [...document.querySelectorAll(".dock-item")];
+        dockItems.forEach((item, index) => {
+          animations.push(
+            item.animate(
+              [
+                { transform: "translateY(0) scale(1)" },
+                { transform: `translateY(${index % 2 === 0 ? -12 : 10}px) scale(1.04)` },
+                { transform: "translateY(0) scale(1)" },
+              ],
+              { duration: 2800 + index * 260, iterations: Infinity, easing: "ease-in-out", delay: index * 140 },
+            ),
+          );
+        });
+
+        const field = document.querySelector("#droplet-field");
+        const blobs = [...field.querySelectorAll(".merge-blob")];
+        const group = new LiquidGroup(field, {
+          mergeDistance: 58,
+          blendRadius: 34,
+          bridgeOpacity: 0.24,
+          resolution: 3,
+        });
+        blobs.forEach((blob) => {
+          group.add(blob);
+          const gesture = new LiquidGesture(blob, { pressScale: 1.04, pressSquish: 0, wobbleOnPress: false });
+          gesture.onDrag(() => group.updatePositions());
+          disposables.push(gesture);
+        });
+        disposables.push(group);
+        setInterval(() => group.updatePositions(), 180);
+      }
+
+      function setChapter(chapter) {
+        if (current === chapter.key) return;
+        current = chapter.key;
+        film.dataset.chapter = chapter.key;
+        chapterLabel.textContent = chapter.label;
+        selectTab(chapter.tab);
+        engines.forEach((engine, index) => {
+          if (index % 4 === chapter.tab) engine.jiggle(0.35);
+        });
+      }
+
+      function setTime(ms) {
+        const elapsed = ((ms % duration) + duration) % duration;
+        const chapter = chapters.reduce((last, next) => (elapsed >= next.at ? next : last), chapters[0]);
+        setChapter(chapter);
+        progress.style.transform = `scaleX(${elapsed / duration})`;
+      }
+
+      function tick(now) {
+        if (!paused) setTime(now - start);
+        requestAnimationFrame(tick);
+      }
+
+      pauseButton.addEventListener("click", () => {
+        paused = !paused;
+        pauseButton.textContent = paused ? "Play" : "Pause";
+        if (paused) {
+          pauseOffset = performance.now() - start;
+          document.getAnimations().forEach((animation) => animation.pause());
+        } else {
+          start = performance.now() - pauseOffset;
+          document.getAnimations().forEach((animation) => animation.play());
+        }
+      });
+
+      restartButton.addEventListener("click", () => {
+        start = performance.now();
+        pauseOffset = 0;
+        paused = false;
+        pauseButton.textContent = "Pause";
+        document.getAnimations().forEach((animation) => animation.play());
+        current = "";
+        setTime(0);
+      });
+
+      window.__quickLiquidLaunchSeek = (ms) => {
+        paused = true;
+        pauseOffset = ms;
+        setTime(ms);
+        document.getAnimations().forEach((animation) => {
+          animation.currentTime = ms;
+          animation.pause();
+        });
+      };
+
+      initGlass();
+      tabsApi = initTabs();
+      initMotion();
+      setTime(pauseOffset);
+      if (paused) {
+        document.getAnimations().forEach((animation) => {
+          if (queryTime) animation.currentTime = pauseOffset;
+          animation.pause();
+        });
+      }
+      requestAnimationFrame(tick);
+
+      window.addEventListener("pagehide", () => {
+        engines.forEach((engine) => engine.destroy());
+        disposables.forEach((item) => item.destroy?.());
+        animations.forEach((animation) => animation.cancel());
+      });
+    </script>
+  </body>
+</html>

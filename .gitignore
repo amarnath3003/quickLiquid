@@ -31,7 +31,6 @@ chrome-debug*.log
 
 # Generated visual QA captures and throwaway launch previews
 landing-mobile*.png
-launch-animation.html
 launch-animation*.png
 tmp-liquid-glass*.png
 
