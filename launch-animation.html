@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="QuickLiquid real liquid glass demo with live refractive elements."
+    />
+    <title>QuickLiquid Real Glass Demo</title>
+    <style>
+      :root {
+        --bg: #05080c;
+        --ink: #eef8fa;
+        --muted: rgba(238, 248, 250, 0.68);
+        --faint: rgba(238, 248, 250, 0.42);
+        --line: rgba(210, 244, 248, 0.16);
+        --cyan: #9af2ff;
+        --mint: #7be5c9;
+        --lime: #b8fff0;
+        --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        --mono: "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100dvh;
+        overflow: hidden;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 50% -18%, rgba(154, 242, 255, 0.24), transparent 35rem),
+          radial-gradient(circle at 82% 28%, rgba(123, 229, 201, 0.16), transparent 28rem),
+          linear-gradient(180deg, #05080c, #081017 55%, #04070b);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .screen {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 100dvh;
+        padding: clamp(14px, 3vw, 34px);
+      }
+
+      .frame {
+        position: relative;
+        width: min(1440px, 100%);
+        aspect-ratio: 16 / 9;
+        min-height: min(760px, calc(100dvh - 96px));
+        overflow: hidden;
+        border: 1px solid rgba(213, 235, 238, 0.16);
+        border-radius: clamp(18px, 2.5vw, 36px);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.035), transparent 30%),
+          linear-gradient(145deg, #111922 0%, #081017 54%, #0c1c1a 100%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          0 34px 110px rgba(0, 0, 0, 0.45);
+      }
+
+      .frame::before {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        z-index: 20;
+        pointer-events: none;
+        border: 1px solid rgba(237, 247, 248, 0.08);
+        border-radius: calc(clamp(18px, 2.5vw, 36px) - 8px);
+      }
+
+      .wallpaper,
+      .motion-field,
+      .grain,
+      .vignette {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .wallpaper {
+        z-index: 0;
+        overflow: hidden;
+      }
+
+      .wallpaper::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.58;
+        background-image:
+          linear-gradient(rgba(180, 232, 238, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(180, 232, 238, 0.08) 1px, transparent 1px);
+        background-size: 54px 54px;
+        mask-image: radial-gradient(ellipse 82% 66% at 50% 38%, #000 28%, transparent 78%);
+      }
+
+      .band {
+        position: absolute;
+        width: 38%;
+        height: 9%;
+        border-radius: 999px;
+        opacity: 0.88;
+        filter: saturate(1.1);
+        animation: band-drift 11s ease-in-out infinite alternate;
+      }
+
+      .band-a {
+        left: -5%;
+        top: 15%;
+        background: linear-gradient(90deg, #ff3b72, #ffb340);
+        transform: rotate(-8deg);
+      }
+
+      .band-b {
+        right: -7%;
+        top: 24%;
+        background: linear-gradient(90deg, #2576ff, #62d5ff);
+        transform: rotate(12deg);
+        animation-delay: -4s;
+      }
+
+      .band-c {
+        left: 9%;
+        bottom: 14%;
+        background: linear-gradient(90deg, #25d98a, #c7ff63);
+        transform: rotate(8deg);
+        animation-delay: -8s;
+      }
+
+      .band-d {
+        right: 10%;
+        bottom: 9%;
+        background: linear-gradient(90deg, #ff4f9f, #8d63ff);
+        transform: rotate(-7deg);
+        animation-delay: -2s;
+      }
+
+      @keyframes band-drift {
+        from {
+          translate: 0 0;
+        }
+        to {
+          translate: 22px -16px;
+        }
+      }
+
+      .motion-field {
+        z-index: 1;
+      }
+
+      .ticker {
+        position: absolute;
+        left: -10%;
+        display: flex;
+        width: max-content;
+        gap: 0.46em;
+        white-space: nowrap;
+        color: rgba(238, 248, 250, 0.2);
+        font-size: clamp(48px, 8vw, 120px);
+        font-weight: 780;
+        letter-spacing: -0.06em;
+        line-height: 1;
+        animation: ticker 18s linear infinite;
+      }
+
+      .ticker.top {
+        top: 13%;
+      }
+
+      .ticker.bottom {
+        bottom: 15%;
+        animation-direction: reverse;
+      }
+
+      .ticker i {
+        color: rgba(154, 242, 255, 0.36);
+        font-style: normal;
+      }
+
+      @keyframes ticker {
+        to {
+          transform: translateX(-36%);
+        }
+      }
+
+      .ball {
+        position: absolute;
+        border-radius: 999px;
+        box-shadow: 0 16px 54px rgba(0, 0, 0, 0.22);
+        animation: ball-drift 7s ease-in-out infinite alternate;
+      }
+
+      .ball-a {
+        left: 9%;
+        top: 48%;
+        width: 58px;
+        height: 58px;
+        background: radial-gradient(circle at 32% 28%, #ff9dbd, #ff3b72);
+      }
+
+      .ball-b {
+        left: 68%;
+        top: 18%;
+        width: 42px;
+        height: 42px;
+        background: radial-gradient(circle at 32% 28%, #9ed9ff, #2576ff);
+        animation-delay: -2s;
+      }
+
+      .ball-c {
+        left: 48%;
+        bottom: 19%;
+        width: 50px;
+        height: 50px;
+        background: radial-gradient(circle at 32% 28%, #a4ffd8, #25d98a);
+        animation-delay: -4s;
+      }
+
+      @keyframes ball-drift {
+        to {
+          translate: 180px -84px;
+        }
+      }
+
+      .grain {
+        z-index: 40;
+        opacity: 0.026;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      }
+
+      .vignette {
+        z-index: 2;
+        background:
+          radial-gradient(ellipse 80% 72% at 50% 42%, transparent 34%, rgba(2, 5, 8, 0.26) 100%),
+          linear-gradient(90deg, rgba(2, 5, 8, 0.3), transparent 22%, transparent 78%, rgba(2, 5, 8, 0.3));
+      }
+
+      .brand,
+      .copy,
+      .glass,
+      .material-rail,
+      .tabs-wrap,
+      .dock,
+      .controls {
+        position: absolute;
+        z-index: 10;
+      }
+
+      .brand {
+        top: clamp(24px, 3vw, 42px);
+        left: clamp(24px, 3vw, 42px);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand img {
+        display: block;
+        width: clamp(156px, 14vw, 230px);
+        height: auto;
+      }
+
+      .brand-tag {
+        height: 30px;
+        padding: 0 13px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgba(237, 247, 248, 0.05);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        display: inline-grid;
+        place-items: center;
+      }
+
+      .copy {
+        left: clamp(28px, 6vw, 90px);
+        top: 52%;
+        width: min(580px, 44vw);
+        transform: translateY(-50%);
+      }
+
+      .kicker {
+        margin: 0 0 18px;
+        color: var(--mint);
+        font-family: var(--mono);
+        font-size: clamp(11px, 1vw, 13px);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 10ch;
+        font-size: clamp(54px, 7vw, 108px);
+        line-height: 0.9;
+        letter-spacing: -0.07em;
+        font-weight: 790;
+      }
+
+      h1 span {
+        color: transparent;
+        background: linear-gradient(96deg, var(--cyan), var(--mint));
+        -webkit-background-clip: text;
+        background-clip: text;
+      }
+
+      .subline {
+        max-width: 45ch;
+        margin: 22px 0 0;
+        color: var(--muted);
+        font-size: clamp(15px, 1.35vw, 20px);
+        line-height: 1.52;
+      }
+
+      .glass {
+        color: rgba(238, 248, 250, 0.88);
+      }
+
+      .glass > .ql-content {
+        position: relative;
+        z-index: 10;
+        height: 100%;
+      }
+
+      .main-lens {
+        right: clamp(42px, 7vw, 118px);
+        top: 49%;
+        width: min(37vw, 500px);
+        height: min(37vw, 500px);
+        border-radius: 999px;
+      }
+
+      .main-lens .ql-content {
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 48px;
+      }
+
+      .lens-label {
+        display: grid;
+        gap: 10px;
+      }
+
+      .lens-label strong {
+        font-size: clamp(28px, 3vw, 46px);
+        line-height: 0.94;
+        letter-spacing: -0.055em;
+      }
+
+      .lens-label span {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .command-panel {
+        right: clamp(42px, 7vw, 116px);
+        top: 51%;
+        width: min(38vw, 520px);
+        height: 315px;
+        border-radius: 30px;
+      }
+
+      .command-panel .ql-content {
+        display: flex;
+        flex-direction: column;
+        padding: 26px;
+      }
+
+      .panel-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .panel-title {
+        margin-top: 28px;
+        font-size: clamp(30px, 3.2vw, 46px);
+        line-height: 0.95;
+        letter-spacing: -0.055em;
+        font-weight: 760;
+      }
+
+      .panel-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: auto;
+      }
+
+      .panel-chip {
+        min-height: 62px;
+        padding: 13px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.055);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .panel-chip b {
+        display: block;
+        color: var(--ink);
+        font-size: 18px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        margin-bottom: 5px;
+      }
+
+      .material-rail {
+        right: clamp(42px, 7vw, 116px);
+        bottom: clamp(42px, 7vw, 78px);
+        display: grid;
+        grid-template-columns: repeat(4, minmax(96px, 1fr));
+        gap: 12px;
+        width: min(41vw, 560px);
+      }
+
+      .material-card {
+        position: relative;
+        height: 112px;
+        border-radius: 24px;
+        color: var(--ink);
+      }
+
+      .material-card .ql-content {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        padding: 16px;
+      }
+
+      .material-card b {
+        font-size: 14px;
+        text-transform: capitalize;
+      }
+
+      .material-card span {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .tabs-wrap {
+        left: clamp(28px, 6vw, 90px);
+        bottom: clamp(42px, 7vw, 78px);
+        border-radius: 999px;
+        padding: 8px;
+      }
+
+      .tabs {
+        position: relative;
+        display: flex;
+        gap: 2px;
+        border-radius: inherit;
+      }
+
+      .tab {
+        position: relative;
+        z-index: 2;
+        min-width: 92px;
+        padding: 12px 18px;
+        border: 0;
+        border-radius: 999px;
+        color: rgba(238, 248, 250, 0.62);
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .tab.active {
+        color: var(--ink);
+      }
+
+      .dock {
+        right: clamp(44px, 8vw, 130px);
+        top: clamp(90px, 10vw, 130px);
+        display: flex;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 999px;
+      }
+
+      .dock-item {
+        position: relative;
+        width: 58px;
+        height: 58px;
+        border-radius: 999px;
+      }
+
+      .dock-item .ql-content {
+        display: grid;
+        place-items: center;
+        color: rgba(238, 248, 250, 0.82);
+        font-size: 18px;
+        font-weight: 760;
+      }
+
+      .controls {
+        right: clamp(18px, 3vw, 34px);
+        bottom: clamp(14px, 2vw, 28px);
+        z-index: 50;
+        display: flex;
+        gap: 10px;
+      }
+
+      .control-button {
+        min-height: 42px;
+        padding: 0 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--ink);
+        background: rgba(237, 247, 248, 0.06);
+        cursor: pointer;
+      }
+
+      .control-button:hover {
+        background: rgba(237, 247, 248, 0.12);
+      }
+
+      .phase-interface .main-lens,
+      .phase-materials .main-lens {
+        animation: lens-slide 800ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+      }
+
+      .phase-interface .command-panel,
+      .phase-materials .command-panel,
+      .phase-materials .material-rail,
+      .phase-final .command-panel,
+      .phase-final .material-rail {
+        animation: glass-pop 780ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+      }
+
+      .phase-intro .command-panel,
+      .phase-intro .material-rail,
+      .phase-interface .material-rail,
+      .phase-final .command-panel,
+      .phase-final .material-rail {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .phase-final .main-lens {
+        animation: lens-center 900ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+      }
+
+      .phase-final .copy {
+        animation: copy-center 700ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+      }
+
+      @keyframes glass-pop {
+        from {
+          opacity: 0;
+          transform: translateY(28px) scale(0.96);
+          filter: blur(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          filter: blur(0);
+        }
+      }
+
+      @keyframes lens-slide {
+        to {
+          right: clamp(390px, 40vw, 650px);
+          width: min(17vw, 230px);
+          height: min(17vw, 230px);
+          opacity: 0.9;
+        }
+      }
+
+      @keyframes lens-center {
+        to {
+          right: 50%;
+          top: 50%;
+          width: min(37vw, 500px);
+          height: min(37vw, 500px);
+          opacity: 0.9;
+          transform: translate(50%, -50%) scale(1.18);
+        }
+      }
+
+      @keyframes copy-center {
+        to {
+          left: 50%;
+          width: min(720px, 64vw);
+          transform: translate(-50%, -50%);
+          text-align: center;
+        }
+      }
+
+      @media (max-width: 980px) {
+        body {
+          overflow: auto;
+        }
+
+        .screen {
+          padding: 10px;
+        }
+
+        .frame {
+          aspect-ratio: auto;
+          min-height: 850px;
+        }
+
+        .brand-tag,
+        .dock {
+          display: none;
+        }
+
+        .copy {
+          left: 28px;
+          right: 28px;
+          top: 28%;
+          width: auto;
+        }
+
+        h1 {
+          font-size: clamp(48px, 13vw, 82px);
+        }
+
+        .main-lens {
+          right: 50%;
+          top: 62%;
+          width: min(72vw, 360px);
+          height: min(72vw, 360px);
+          transform: translateX(50%);
+        }
+
+        .command-panel {
+          left: 22px;
+          right: 22px;
+          top: auto;
+          bottom: 120px;
+          width: auto;
+          height: 300px;
+        }
+
+        .material-rail {
+          left: 22px;
+          right: 22px;
+          bottom: 116px;
+          width: auto;
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .tabs-wrap {
+          left: 22px;
+          right: 22px;
+          bottom: 30px;
+          overflow-x: auto;
+        }
+
+        .tabs {
+          width: max-content;
+          min-width: 100%;
+        }
+
+        .tab {
+          min-width: 84px;
+        }
+
+        .phase-interface .main-lens,
+        .phase-materials .main-lens,
+        .phase-final .main-lens,
+        .phase-final .copy {
+          animation: none;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .brand img {
+          width: 148px;
+        }
+
+        .frame {
+          min-height: 820px;
+          border-radius: 20px;
+        }
+
+        .frame::before {
+          inset: 10px;
+          border-radius: 14px;
+        }
+
+        .copy {
+          top: 27%;
+        }
+
+        .main-lens {
+          top: 60%;
+        }
+
+        .command-panel {
+          height: 286px;
+        }
+
+        .panel-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .panel-chip {
+          min-height: 46px;
+        }
+
+        .material-card {
+          height: 92px;
+        }
+
+        .controls {
+          right: 20px;
+          bottom: 96px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen">
+      <section class="frame phase-intro" id="frame" aria-label="QuickLiquid real liquid glass demo">
+        <div class="wallpaper" aria-hidden>
+          <i class="band band-a"></i>
+          <i class="band band-b"></i>
+          <i class="band band-c"></i>
+          <i class="band band-d"></i>
+        </div>
+        <div class="motion-field" aria-hidden>
+          <div class="ticker top">
+            <span>refraction <i>/</i> live pixels <i>/</i> spring glass <i>/</i></span>
+            <span>refraction <i>/</i> live pixels <i>/</i> spring glass <i>/</i></span>
+          </div>
+          <div class="ticker bottom">
+            <span>chromatic rim <i>/</i> real engine <i>/</i> glass UI <i>/</i></span>
+            <span>chromatic rim <i>/</i> real engine <i>/</i> glass UI <i>/</i></span>
+          </div>
+          <i class="ball ball-a"></i>
+          <i class="ball ball-b"></i>
+          <i class="ball ball-c"></i>
+        </div>
+
+        <header class="brand">
+          <img src="assets/quick-liquid-logo.svg" alt="QuickLiquid" />
+          <span class="brand-tag">real engine demo</span>
+        </header>
+
+        <article class="copy">
+          <p class="kicker" id="kicker">Real QuickLiquid glass</p>
+          <h1 id="headline">Glass elements, <span>fully</span> visible.</h1>
+          <p class="subline" id="subline">
+            Every surface on this page is initialized with LiquidGlassEngine from the local package.
+          </p>
+        </article>
+
+        <div class="glass ql-real main-lens" data-glass="lens">
+          <div class="lens-label">
+            <strong>Live refractive lens</strong>
+            <span>SVG displacement over moving pixels</span>
+          </div>
+        </div>
+
+        <section class="glass ql-real command-panel" data-glass="panel">
+          <div class="panel-top">
+            <span>command surface</span>
+            <span>real glass</span>
+          </div>
+          <div class="panel-title">A complete glass UI, not a mockup.</div>
+          <div class="panel-grid">
+            <div class="panel-chip"><b>SVG</b>refraction</div>
+            <div class="panel-chip"><b>RGB</b>rim split</div>
+            <div class="panel-chip"><b>Spring</b>press feel</div>
+          </div>
+        </section>
+
+        <div class="material-rail">
+          <div class="glass ql-real material-card" data-glass="clear"><b>clear</b><span>lens</span></div>
+          <div class="glass ql-real material-card" data-glass="regular"><b>regular</b><span>balanced</span></div>
+          <div class="glass ql-real material-card" data-glass="thick"><b>thick</b><span>frost</span></div>
+          <div class="glass ql-real material-card" data-glass="ultra"><b>ultra</b><span>soft</span></div>
+        </div>
+
+        <div class="glass ql-real dock" data-glass="dock" aria-label="Liquid glass dock">
+          <div class="glass ql-real dock-item" data-glass="dockItem">Q</div>
+          <div class="glass ql-real dock-item" data-glass="dockItem">L</div>
+          <div class="glass ql-real dock-item" data-glass="dockItem">G</div>
+          <div class="glass ql-real dock-item" data-glass="dockItem">O</div>
+        </div>
+
+        <nav class="glass ql-real tabs-wrap" data-glass="tabs" aria-label="Liquid glass tabs">
+          <div class="tabs" id="tabs">
+            <button class="tab active" type="button">Lens</button>
+            <button class="tab" type="button">Panel</button>
+            <button class="tab" type="button">Dock</button>
+            <button class="tab" type="button">Cards</button>
+          </div>
+        </nav>
+
+        <div class="controls" aria-label="Demo controls">
+          <button class="control-button" id="pause" type="button">Pause</button>
+          <button class="control-button" id="restart" type="button">Restart</button>
+        </div>
+
+        <div class="vignette" aria-hidden></div>
+        <div class="grain" aria-hidden></div>
+      </section>
+    </main>
+
+    <script type="module">
+      import {
+        LiquidGlassEngine,
+        LiquidButton,
+        LiquidGesture,
+        LiquidTabBar,
+      } from "./packages/quick-liquid/dist/index.mjs";
+
+      const frame = document.querySelector("#frame");
+      const kicker = document.querySelector("#kicker");
+      const headline = document.querySelector("#headline");
+      const subline = document.querySelector("#subline");
+      const pauseButton = document.querySelector("#pause");
+      const restartButton = document.querySelector("#restart");
+
+      const engines = [];
+      const disposables = [];
+
+      const base = {
+        quality: "high",
+        refractionMode: "svg",
+        appearance: "dark",
+        dynamicLighting: true,
+        cursorTracking: true,
+        hoverLighting: false,
+        parallax: false,
+        chromaticAberration: 0.34,
+        tint: "255, 255, 255",
+      };
+
+      const presets = {
+        lens: {
+          ...base,
+          material: "clear",
+          borderRadius: 999,
+          blur: 1.5,
+          tintOpacity: 0.018,
+          refractionStrength: 34,
+          bezelWidth: 54,
+          thickness: 38,
+          edgeHighlight: 1,
+          specularStrength: 0.56,
+        },
+        panel: {
+          ...base,
+          material: "regular",
+          borderRadius: 30,
+          refractionStrength: 22,
+          bezelWidth: 34,
+          tintOpacity: 0.085,
+        },
+        dock: {
+          ...base,
+          material: "thin",
+          borderRadius: 999,
+          refractionStrength: 18,
+          tintOpacity: 0.065,
+        },
+        dockItem: {
+          ...base,
+          material: "clear",
+          borderRadius: 999,
+          refractionStrength: 24,
+          tintOpacity: 0.03,
+          bezelWidth: 28,
+        },
+        tabs: {
+          ...base,
+          material: "thin",
+          borderRadius: 999,
+          refractionStrength: 16,
+          tintOpacity: 0.06,
+        },
+        clear: {
+          ...base,
+          material: "clear",
+          borderRadius: 24,
+          refractionStrength: 30,
+          tintOpacity: 0.018,
+        },
+        regular: {
+          ...base,
+          material: "regular",
+          borderRadius: 24,
+        },
+        thick: {
+          ...base,
+          material: "thick",
+          borderRadius: 24,
+        },
+        ultra: {
+          ...base,
+          material: "ultra",
+          borderRadius: 24,
+        },
+      };
+
+      function initGlass() {
+        document.querySelectorAll(".ql-real").forEach((el) => {
+          const kind = el.dataset.glass;
+          const config = presets[kind] || presets.panel;
+          const engine = new LiquidGlassEngine(el, config);
+          engines.push(engine);
+
+          if (!el.classList.contains("tabs-wrap") && !el.classList.contains("dock")) {
+            engine.enableLiquidPress({ scale: 0.93, squish: 0.025 });
+            disposables.push(new LiquidButton(el));
+          }
+        });
+      }
+
+      function initTabs() {
+        const tabs = document.querySelector("#tabs");
+        const items = [...tabs.querySelectorAll(".tab")];
+        const tabBar = new LiquidTabBar(tabs, items, { spring: "snappy" });
+        const indicator = tabBar.getIndicator();
+        indicator.classList.add("glass");
+        indicator.style.zIndex = "1";
+        indicator.style.insetBlock = "0";
+        indicator.style.color = "transparent";
+
+        engines.push(
+          new LiquidGlassEngine(indicator, {
+            ...base,
+            material: "clear",
+            borderRadius: 999,
+            refractionStrength: 26,
+            tintOpacity: 0.035,
+            bezelWidth: 24,
+          }),
+        );
+
+        items.forEach((item, index) => {
+          item.addEventListener("click", () => {
+            items.forEach((tab) => tab.classList.remove("active"));
+            item.classList.add("active");
+            tabBar.select(index);
+          });
+        });
+
+        disposables.push(tabBar);
+        return { tabBar, items };
+      }
+
+      function initDockMotion() {
+        const dockItems = [...document.querySelectorAll(".dock-item")];
+        dockItems.forEach((item, index) => {
+          disposables.push(new LiquidGesture(item, { pressScale: 1.05, pressSquish: 0 }));
+          item.animate(
+            [
+              { transform: "translateY(0) scale(1)" },
+              { transform: `translateY(${index % 2 === 0 ? -12 : 10}px) scale(1.04)` },
+              { transform: "translateY(0) scale(1)" },
+            ],
+            {
+              duration: 2800 + index * 260,
+              iterations: Infinity,
+              easing: "ease-in-out",
+              delay: index * 140,
+            },
+          );
+        });
+      }
+
+      const phases = [
+        {
+          at: 0,
+          name: "intro",
+          tab: 0,
+          kicker: "Real QuickLiquid glass",
+          headline: "Glass elements, <span>fully</span> visible.",
+          subline: "Every surface on this page is initialized with LiquidGlassEngine from the local package.",
+        },
+        {
+          at: 4400,
+          name: "interface",
+          tab: 1,
+          kicker: "Complete demo surface",
+          headline: "Panels, docks and tabs use the <span>engine.</span>",
+          subline: "The glass is not CSS-only decoration. It is the shipped renderer over moving content.",
+        },
+        {
+          at: 9200,
+          name: "materials",
+          tab: 3,
+          kicker: "Material presets",
+          headline: "Clear lens to <span>heavy</span> frost.",
+          subline: "The rail shows live clear, regular, thick and ultra material presets at full size.",
+        },
+        {
+          at: 14000,
+          name: "final",
+          tab: 2,
+          kicker: "QuickLiquid",
+          headline: "Real liquid glass for <span>web UI.</span>",
+          subline: "Use it for nav bars, command palettes, floating controls, tabs and cards.",
+        },
+      ];
+
+      const duration = 19000;
+      let start = performance.now();
+      let paused = false;
+      let pauseOffset = 0;
+      let current = "";
+      let tabsApi;
+
+      function setPhase(phase) {
+        if (current === phase.name) return;
+        current = phase.name;
+        frame.className = `frame phase-${phase.name}`;
+        kicker.textContent = phase.kicker;
+        headline.innerHTML = phase.headline;
+        subline.textContent = phase.subline;
+        tabsApi.items.forEach((tab) => tab.classList.remove("active"));
+        tabsApi.items[phase.tab]?.classList.add("active");
+        tabsApi.tabBar.select(phase.tab);
+        engines.forEach((engine, index) => {
+          if (index % 3 === phase.tab % 3) engine.jiggle(0.45);
+        });
+      }
+
+      function tick(now) {
+        if (!paused) {
+          const elapsed = (now - start) % duration;
+          const phase = phases.reduce((last, next) => (elapsed >= next.at ? next : last), phases[0]);
+          setPhase(phase);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      pauseButton.addEventListener("click", () => {
+        paused = !paused;
+        pauseButton.textContent = paused ? "Play" : "Pause";
+        document.getAnimations().forEach((animation) => {
+          if (animation.effect?.target !== pauseButton) {
+            paused ? animation.pause() : animation.play();
+          }
+        });
+        if (paused) {
+          pauseOffset = performance.now() - start;
+        } else {
+          start = performance.now() - pauseOffset;
+        }
+      });
+
+      restartButton.addEventListener("click", () => {
+        start = performance.now();
+        pauseOffset = 0;
+        paused = false;
+        pauseButton.textContent = "Pause";
+        current = "";
+        document.getAnimations().forEach((animation) => animation.play());
+        setPhase(phases[0]);
+      });
+
+      initGlass();
+      tabsApi = initTabs();
+      initDockMotion();
+      requestAnimationFrame(tick);
+
+      window.addEventListener("pagehide", () => {
+        engines.forEach((engine) => engine.destroy());
+        disposables.forEach((item) => item.destroy?.());
+      });
+    </script>
+  </body>
+</html>
