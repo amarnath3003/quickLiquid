@@ -4,10 +4,12 @@
   "workspaces": [
     "packages/quick-liquid",
     "demo",
-    "landingPage"
+    "landingPage",
+    "compare"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=demo",
+    "dev:compare": "npm run dev --workspace=compare",
     "dev:landing": "npm run dev --workspace=landingPage",
     "build:lib": "npm run build --workspace=packages/quick-liquid",
     "build:landing": "npm run build --workspace=landingPage",

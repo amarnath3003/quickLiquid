@@ -9,6 +9,10 @@
 export { LiquidGlassEngine, DEFAULT_CONFIG, MATERIAL_PRESETS } from './core/engine';
 export type { LiquidGlassConfig } from './core/engine';
 
+// v8 optimized engine (A/B candidate — see packages/quick-liquid/OPTIMIZATION.md)
+export { LiquidGlassEngineOpt } from './core/engine-opt';
+export type { LiquidGlassOptConfig } from './core/engine-opt';
+
 // Liquid animations
 export {
   // Spring physics
