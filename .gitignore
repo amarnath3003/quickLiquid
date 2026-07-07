@@ -25,6 +25,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Local browser/debug artifacts
+chrome-debug*.log
+.tmp-chrome*/
+
+# Generated visual QA captures and throwaway launch previews
+landing-mobile*.png
+launch-animation.html
+launch-animation*.png
+tmp-liquid-glass*.png
+
 # Coverage and test outputs
 coverage/
 *.lcov
