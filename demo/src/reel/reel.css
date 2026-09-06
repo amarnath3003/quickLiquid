@@ -1,0 +1,493 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   reel.css — the set the glass performs on.
+   ══════════════════════════════════════════════════════════════════════════
+
+   ART DIRECTION
+   Liquid glass is only as good as what sits behind it. A dim backdrop makes
+   even perfect refraction look like tinted plastic, because there is nothing in
+   the frame to bend. So the set is a vivid wallpaper: five big saturated colour
+   masses pushed out toward the edges, a darker well in the middle for the type
+   to read against, and crisp white geometry — concentric rings and a grid — laid
+   over the top. Curved and straight lines crossing a bezel are the most legible
+   proof of refraction there is.
+
+   TWO HARD RULES
+   1. NOTHING that induces a backdrop root may appear on a glass host or on any
+      of its ancestors: no `opacity`, `filter`, `mask`, `mix-blend-mode`,
+      `isolation`, `backdrop-filter`. Chromium keeps the blur and silently drops
+      the url() displacement, so the failure looks like success. Everything that
+      fades here is either inside .stage (a sibling behind the glass) or inside
+      .ql-content (a child above it) — never in between.
+   2. Every CSS animation is permanently paused and offset by
+      `animation-delay: calc(var(--reel-t) * -1ms)`. A paused animation renders
+      at |delay|, so the drifting colour masses land at exactly time t. That is
+      what lets the transport bar scrub the whole scene, and what lets a capture
+      script step frames without the backdrop sliding on wall clock.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ink: #f4f9ff;
+  --muted: rgba(244, 249, 255, 0.7);
+  --faint: rgba(244, 249, 255, 0.42);
+  --cyan: #3fe9ff;
+  --indigo: #5a3bff;
+  --magenta: #ff2d9b;
+  --mint: #34f5c5;
+  --amber: #ffb020;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable Display',
+    'Segoe UI', Inter, system-ui, sans-serif;
+  --mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#reel-root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #000;
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+.reel-page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+}
+
+.reel-page[data-chrome='shown'] {
+  padding-bottom: 92px;
+}
+
+.reel-frame {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  /* No filter / opacity / mask here — ancestor of every glass host. */
+}
+
+/* ── deterministic backdrop motion ──────────────────────────────────────── */
+
+.stage .mass,
+.stage .rings,
+.stage .grid {
+  animation-play-state: paused;
+  animation-delay: calc(var(--reel-t, 0) * -1ms);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STAGE — everything the glass bends
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.stage {
+  position: absolute;
+  inset: 0;
+}
+
+.stage-base {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #06021a, #0a0424 52%, #04010f);
+}
+
+/* The wallpaper. Scaled and faded out from the centre during the ignition beat
+   so the colour arrives as a wave rather than a cross-fade. .field is a sibling
+   of the glass, never an ancestor, so transform and opacity are free here. */
+.field {
+  position: absolute;
+  inset: -12%;
+  transform-origin: 50% 50%;
+}
+
+.mass {
+  position: absolute;
+  border-radius: 50%;
+  animation: mass-drift 30s ease-in-out infinite alternate;
+}
+
+.m-cyan {
+  left: -10%;
+  top: -16%;
+  width: 1180px;
+  height: 1180px;
+  background: radial-gradient(circle, rgba(63, 233, 255, 0.5), transparent 62%);
+}
+
+.m-indigo {
+  right: -8%;
+  top: -20%;
+  width: 1360px;
+  height: 1360px;
+  background: radial-gradient(circle, rgba(90, 59, 255, 0.62), transparent 60%);
+  animation-duration: 37s;
+  animation-direction: alternate-reverse;
+}
+
+.m-magenta {
+  right: -4%;
+  bottom: -30%;
+  width: 1280px;
+  height: 1280px;
+  background: radial-gradient(circle, rgba(255, 45, 155, 0.5), transparent 60%);
+  animation-duration: 43s;
+}
+
+.m-mint {
+  left: -14%;
+  bottom: -26%;
+  width: 1120px;
+  height: 1120px;
+  background: radial-gradient(circle, rgba(52, 245, 197, 0.4), transparent 60%);
+  animation-duration: 34s;
+  animation-direction: alternate-reverse;
+}
+
+.m-amber {
+  left: 30%;
+  bottom: -8%;
+  width: 1000px;
+  height: 1000px;
+  background: radial-gradient(circle, rgba(255, 150, 60, 0.42), transparent 64%);
+  animation-duration: 49s;
+}
+
+@keyframes mass-drift {
+  from {
+    transform: translate3d(-52px, -34px, 0) scale(1);
+  }
+  to {
+    transform: translate3d(70px, 44px, 0) scale(1.14);
+  }
+}
+
+/* A darker well in the middle. Without it the vivid masses swallow white type,
+   and the title is the one thing that must never fight the backdrop. */
+.center-shade {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(48% 32% at 50% 33%, rgba(3, 1, 10, 0.9), transparent 76%);
+}
+
+/* Concentric rings — curved lines are the most beautiful thing a bezel can
+   bend, and the most obvious when it does. */
+.rings {
+  position: absolute;
+  inset: -40%;
+  background: repeating-radial-gradient(
+    circle at 50% 50%,
+    transparent 0 95px,
+    rgba(255, 255, 255, 0.085) 95px 96px
+  );
+  animation: rings-breathe 26s ease-in-out infinite alternate;
+}
+
+@keyframes rings-breathe {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.09);
+  }
+}
+
+/* Straight lines: the honest test. They must kink at the rim and run clean
+   through the middle. */
+.grid {
+  position: absolute;
+  inset: -400px;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.13) 0 1px, transparent 1px 320px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 320px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 80px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.038) 0 1px, transparent 1px 80px);
+  animation: grid-drift 16s linear infinite;
+}
+
+@keyframes grid-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(80px, 80px, 0);
+  }
+}
+
+/* ── the seam of light the droplets land on ─────────────────────────────── */
+
+.seam {
+  position: absolute;
+  left: 0;
+  top: 539px;
+  width: 100%;
+  height: 2px;
+  transform-origin: 50% 50%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(63, 233, 255, 0.6) 16%,
+    #ffffff 50%,
+    rgba(63, 233, 255, 0.6) 84%,
+    transparent
+  );
+}
+
+.seam-glow {
+  position: absolute;
+  left: 0;
+  top: 430px;
+  width: 100%;
+  height: 220px;
+  transform-origin: 50% 50%;
+  background: radial-gradient(110% 56% at 50% 50%, rgba(120, 230, 255, 0.42), transparent 72%);
+}
+
+/* Expanding rings — impact events, drawn in the backdrop so glass over them
+   bends them too. */
+.ring {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 2px solid rgba(240, 252, 255, 0.9);
+}
+
+/* ── titles (backdrop layer — the lens refracts these) ──────────────────── */
+
+.kicker {
+  position: absolute;
+  left: 50%;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  color: var(--cyan);
+  text-shadow: 0 0 30px rgba(63, 233, 255, 0.5);
+  white-space: nowrap;
+}
+
+/* Full frame width on purpose: the reveal mask is authored in frame
+   coordinates, and mask percentages resolve against this element's own box. */
+.wordmark {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  transform: translateY(-50%);
+  margin: 0;
+  text-align: center;
+  font-size: 188px;
+  font-weight: 800;
+  letter-spacing: -6px;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 0 64px rgba(150, 215, 255, 0.32);
+}
+
+.subline {
+  position: absolute;
+  left: 50%;
+  margin: 0;
+  font-size: 31px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.flare {
+  position: absolute;
+  left: 0;
+  top: -24%;
+  width: 340px;
+  height: 148%;
+  transform-origin: 50% 50%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(200, 245, 255, 0.1) 28%,
+    rgba(255, 255, 255, 0.26) 50%,
+    rgba(200, 245, 255, 0.1) 72%,
+    transparent
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GLASS HOSTS — position and transform only
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.actor {
+  position: absolute;
+}
+
+/* Content inside .ql-content sits above every effect layer, so it may fade. */
+.pill-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: 100%;
+  font-family: var(--mono);
+  font-size: 30px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.pill-prompt {
+  color: var(--mint);
+}
+
+.pill-command {
+  color: #ffffff;
+}
+
+/* ── grade, painted above everything; never an ancestor of glass ─────────── */
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    126% 94% at 50% 50%,
+    transparent 46%,
+    rgba(2, 1, 8, 0.4) 78%,
+    rgba(2, 1, 8, 0.88) 100%
+  );
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: #eaf6ff;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TRANSPORT — review chrome. Outside .reel-frame, never recorded.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.transport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 22px;
+  background: rgba(6, 4, 16, 0.95);
+  border-top: 1px solid rgba(63, 233, 255, 0.16);
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.tr-btn {
+  flex: none;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(63, 233, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(63, 233, 255, 0.07);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tr-btn:hover {
+  background: rgba(63, 233, 255, 0.16);
+}
+
+.tr-btn--rate {
+  min-width: 44px;
+  font-size: 12px;
+}
+
+.tr-btn--rate[data-on='true'] {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  color: #06021a;
+  font-weight: 700;
+}
+
+.tr-scrub {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.tr-scrub input {
+  width: 100%;
+  accent-color: var(--cyan);
+  cursor: pointer;
+}
+
+.tr-marks {
+  position: relative;
+  height: 10px;
+  margin-top: 2px;
+}
+
+.tr-mark {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 6px;
+  background: rgba(63, 233, 255, 0.32);
+}
+
+.tr-mark[data-active='true'] {
+  height: 10px;
+  background: var(--cyan);
+}
+
+.tr-time {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.tr-time em {
+  font-style: normal;
+  color: var(--faint);
+}
+
+.tr-beat {
+  flex: none;
+  min-width: 96px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(63, 233, 255, 0.12);
+  color: var(--cyan);
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.tr-rates {
+  display: flex;
+  gap: 6px;
+}
+
+.tr-hint {
+  flex: none;
+  letter-spacing: 0.6px;
+}
+
+@media (max-width: 1180px) {
+  .tr-hint,
+  .tr-beat {
+    display: none;
+  }
+}

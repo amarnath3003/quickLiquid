@@ -10,4 +10,14 @@ export default defineConfig({
       'quick-liquid/react': path.resolve(__dirname, '../packages/quick-liquid/src/react'),
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        // The playground demo.
+        main: path.resolve(__dirname, 'index.html'),
+        // The intro reel that gets screen-recorded for the README.
+        reel: path.resolve(__dirname, 'reel.html'),
+      },
+    },
+  },
 });

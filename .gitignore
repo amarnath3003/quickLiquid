@@ -29,6 +29,9 @@ lerna-debug.log*
 chrome-debug*.log
 .tmp-chrome*/
 
+# Reel frame captures (regenerate with demo/tools/reel-shot.cjs)
+.reel/
+
 # Generated visual QA captures and throwaway launch previews
 landing-mobile*.png
 launch-animation*.png

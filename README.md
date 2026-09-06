@@ -24,6 +24,23 @@
   <a href="https://www.npmjs.com/package/quick-liquid"><b>npm</b></a>
 </p>
 
+<p align="center">
+  <img
+    src="assets/quick-liquid-reel.gif"
+    alt="A droplet of glass falls onto a seam of light; five droplets fuse into a single lens; the lens crosses the frame refracting the QuickLiquid wordmark as it passes"
+    width="720"
+  />
+</p>
+
+<p align="center">
+  <sub>
+    Every surface in that clip is a live <code>LiquidGlassEngine</code>, and the wordmark is page content sitting
+    <i>behind</i> the glass &mdash; those letters are being displaced by a real SVG map, not by a video effect.<br />
+    Source: <a href="demo/src/reel/Intro.tsx"><code>demo/src/reel/Intro.tsx</code></a>
+    &middot; re-render with <code>npm run reel:gif</code>
+  </sub>
+</p>
+
 ---
 
 ## Why QuickLiquid
@@ -305,6 +322,31 @@ Useful workspace scripts:
 | `npm run typecheck` | Type-checks `packages/quick-liquid`. |
 | `npm run build:lib` | Builds the library package with tsup. |
 | `npm run build` | Builds the library, demo, and landing site. |
+
+### Intro reel
+
+The animation at the top of this README is a React component, not a video file.
+It composes at a fixed 1920x1080, and every value on screen is a pure function of
+the film clock &mdash; which is what lets it be scrubbed by hand and captured
+frame-perfectly rather than screen-recorded.
+
+Run `npm run dev` in `demo/` and open [`/reel.html`](demo/reel.html) to play it.
+Space plays and pauses, `R` replays, the arrow keys step a frame at a time
+(hold shift for a second), and `H` hides the transport bar. `?clean=1` opens it
+with no chrome at all.
+
+| Command (from `demo/`) | What it does |
+| --- | --- |
+| `npm run reel:gif -- <out.gif> [width] [fps] [colors] [tolerance]` | Re-renders the README GIF. Defaults to 720px / 14fps / 128 colours; the shipped file is `560 12 224 6`. |
+| `npm run reel:shot -- <dir> <ms,ms,...>` | Grabs exact frames as PNGs, or `all` for a 60fps sequence. |
+| `npm run reel:fitcheck` | Toggles every `feDisplacementMap` off and on at each export scale and prints the mean pixel difference, proving refraction is still live and not silently lost to a backdrop root. |
+| `npm run reel:gifcheck -- <in.gif> <dir> <frame,frame>` | Decodes frames back out of an encoded GIF, so the delta encoding can be inspected instead of trusted. |
+
+The GIF export is lossy in two ways worth knowing about: GIF allows 256 colours
+per frame, which contours the smooth colour field, and the encoder leaves up to
+`tolerance` of per-channel error on any pixel it carries over between frames.
+Both are tuned for a file small enough to sit in a README. The reel itself, in a
+browser, has neither limitation.
 
 ## Documentation
 
