@@ -6,7 +6,7 @@ export function Nav({ base = '' }: { base?: string }) {
     { href: `${base}#features`, label: 'Optics' },
     { href: `${base}#liquid`, label: 'Motion' },
     { href: `${base}#install`, label: 'Install' },
-    { href: `${base}#playground`, label: 'Playground' },
+    { href: '/playground/', label: 'Playground' },
     { href: '/docs/', label: 'Docs' },
   ];
 

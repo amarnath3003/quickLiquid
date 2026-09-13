@@ -55,7 +55,7 @@ export const PROPERTIES: PropertyDef[] = [
     type: `'clear' | 'thin' | 'regular' | 'thick' | 'ultra' | 'adaptive'`,
     defaultValue: '—',
     description:
-      'Apple material preset. Sets blur, tint, refraction and bezel geometry together. Explicit config keys always win over the preset.',
+      'quickLiquid material preset. Sets blur, tint, refraction and bezel geometry together. Explicit config keys always win over the preset.',
     control: { kind: 'select', options: ['none', 'clear', 'thin', 'regular', 'thick', 'ultra', 'adaptive'] },
   },
   {
@@ -152,7 +152,7 @@ export const PROPERTIES: PropertyDef[] = [
     label: 'Chromatic Aberration',
     group: 'Dispersion',
     type: 'number',
-    defaultValue: '0.3',
+    defaultValue: '0.18',
     description:
       '0–1 per-channel dispersion split at the bezel. Implemented as three feDisplacementMap scales on one shared map — the prism is free.',
     control: { kind: 'slider', min: 0, max: 1, step: 0.02, precision: 2 },
@@ -182,7 +182,7 @@ export const PROPERTIES: PropertyDef[] = [
     label: 'Bezel Sheen',
     group: 'Lighting',
     type: 'number',
-    defaultValue: '0.42',
+    defaultValue: '0.26',
     description: 'Intensity of the soft bezel-band light sweep that sits under the crisp rim.',
     control: { kind: 'slider', min: 0, max: 1, step: 0.02, precision: 2 },
   },
@@ -285,6 +285,24 @@ export const PROPERTIES: PropertyDef[] = [
 
   // ── Rendering ─────────────────────────────────────────────────
   {
+    key: 'dispersionMode',
+    label: 'Dispersion Mode',
+    group: 'Dispersion',
+    type: `'auto' | 'exact'`,
+    defaultValue: `'auto'`,
+    description: 'Auto skips RGB splitting when frost masks the separation; exact retains three channel samples. Low quality and negligible dispersion use one sample in either mode.',
+    control: { kind: 'select', options: ['auto', 'exact'] },
+  },
+  {
+    key: 'respectPreferences',
+    label: 'Respect Preferences',
+    group: 'Rendering',
+    type: 'boolean',
+    defaultValue: 'true',
+    description: 'Honor reduced motion and reduced transparency in the glass engine. Independent animation utilities need their own preference handling.',
+    control: { kind: 'toggle' },
+  },
+  {
     key: 'borderRadius',
     label: 'Border Radius',
     group: 'Rendering',
@@ -327,7 +345,7 @@ export const CURATED_PRESETS: { name: string; note: string; config: Partial<Liqu
     config: { blur: 0, refractionStrength: 40, saturation: 1.4, tintOpacity: 0.05 },
   },
   {
-    name: 'Frosted (Apple)',
+    name: 'Frosted',
     note: 'Default overlays and sheets',
     config: { blur: 24, refractionStrength: 18, saturation: 1.8, tintOpacity: 0.15 },
   },

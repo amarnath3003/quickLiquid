@@ -15,6 +15,8 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         docs: path.resolve(__dirname, 'docs/index.html'),
+        playground: path.resolve(__dirname, 'playground/index.html'),
+        lab: path.resolve(__dirname, 'lab/index.html'),
       },
     },
   },

@@ -1,6 +1,6 @@
 {
   "name": "quick-liquid",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Ultra-optimized Liquid Glass UI framework - Apple's liquid glass effect with minimal compute",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -16,6 +16,10 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
+    },
+    "./core": {
+      "import": { "types": "./dist/core/index.d.mts", "default": "./dist/core/index.mjs" },
+      "require": { "types": "./dist/core/index.d.ts", "default": "./dist/core/index.js" }
     },
     "./react": {
       "import": {

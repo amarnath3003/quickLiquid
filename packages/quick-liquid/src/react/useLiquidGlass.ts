@@ -39,7 +39,7 @@ export function useLiquidGlass<T extends HTMLElement = HTMLDivElement>(
   // Config updates
   useEffect(() => {
     if (engineRef.current) {
-      engineRef.current.updateConfig(config);
+      engineRef.current.setConfig(config);
     }
   }, [config]);
   

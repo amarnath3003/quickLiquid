@@ -30,7 +30,6 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
   ({ config = {}, as: Component = 'div', active = true, children, liquidPress, animateIn: animateInProp, jiggle: jiggleProp, onPerformanceUpdate, style, ...props }, ref) => {
     const elementRef = useRef<HTMLDivElement>(null);
     const engineRef = useRef<LiquidGlassEngine | null>(null);
-    const mountedRef = useRef(false);
     
     const configStr = useMemo(() => JSON.stringify(config), [config]);
     
@@ -40,40 +39,40 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
       
       engineRef.current = new LiquidGlassEngine(elementRef.current, JSON.parse(configStr));
       
-      // Enable liquid press if requested
-      if (liquidPress) {
-        const pressConfig = typeof liquidPress === 'object' ? liquidPress : undefined;
-        engineRef.current.enableLiquidPress(pressConfig);
+      let jiggleTimer: ReturnType<typeof setTimeout> | undefined;
+      if (animateInProp !== false && animateInProp !== undefined) {
+        const delay = typeof animateInProp === 'number' ? animateInProp : 0;
+        engineRef.current.animateIn(delay);
       }
-      
-      // Animate in ONLY on first mount
-      if (!mountedRef.current) {
-        mountedRef.current = true;
         
-        if (animateInProp !== false && animateInProp !== undefined) {
-          const delay = typeof animateInProp === 'number' ? animateInProp : 0;
-          engineRef.current.animateIn(delay);
-        }
-        
-        if (jiggleProp) {
-          const intensity = typeof jiggleProp === 'number' ? jiggleProp : 1;
-          setTimeout(() => engineRef.current?.jiggle(intensity), 100);
-        }
+      if (jiggleProp) {
+        const intensity = typeof jiggleProp === 'number' ? jiggleProp : 1;
+        const engine = engineRef.current;
+        jiggleTimer = setTimeout(() => engine?.jiggle(intensity), 100);
       }
       
       return () => {
+        clearTimeout(jiggleTimer);
         engineRef.current?.destroy();
         engineRef.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [active]); // Only re-run if 'active' toggle changes
+    }, [active, Component]);
     
     // Config updates
     useEffect(() => {
       if (engineRef.current && active) {
-        engineRef.current.updateConfig(JSON.parse(configStr));
+        engineRef.current.setConfig(JSON.parse(configStr));
       }
     }, [configStr, active]);
+
+    useEffect(() => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      if (liquidPress) engine.enableLiquidPress(typeof liquidPress === 'object' ? liquidPress : undefined);
+      else engine.disableLiquidPress();
+      return () => engine.disableLiquidPress();
+    }, [liquidPress, active, Component]);
     
     // Performance reporting
     useEffect(() => {
@@ -91,7 +90,7 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
     }, [onPerformanceUpdate, active]);
     
     useImperativeHandle(ref, () => ({
-      engine: engineRef.current,
+      get engine() { return engineRef.current; },
       getMetrics: () => engineRef.current?.getPerformanceMetrics() ?? null,
       jiggle: (intensity?: number) => engineRef.current?.jiggle(intensity),
       animateIn: (delay?: number) => engineRef.current?.animateIn(delay),

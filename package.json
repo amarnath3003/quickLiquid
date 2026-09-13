@@ -8,6 +8,7 @@
     "compare"
   ],
   "scripts": {
+    "test": "node --test packages/quick-liquid/test/*.cjs",
     "dev": "npm run dev --workspace=demo",
     "dev:compare": "npm run dev --workspace=compare",
     "dev:landing": "npm run dev --workspace=landingPage",
@@ -16,5 +17,8 @@
     "build:landing": "npm run build --workspace=landingPage",
     "build": "npm run build:lib && npm run build --workspace=demo && npm run build:landing",
     "typecheck": "npm run typecheck --workspace=packages/quick-liquid"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.7"
   }
 }

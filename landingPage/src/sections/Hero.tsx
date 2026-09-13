@@ -39,8 +39,7 @@ export function Hero() {
             for <em className="ink">tactile web UI.</em>
           </h1>
           <p className="hero-sub">
-            quickliquid turns ordinary HTML into refractive, springy interface material. No shaders,
-            no canvas, no WebGL.
+            Real refraction. Responsive light. Liquid glass for React and vanilla JavaScript, with the optics computed ahead of time.
           </p>
 
           <div className="hero-actions">
@@ -51,7 +50,7 @@ export function Hero() {
               npm install quick-liquid
               <span className="install-pill__copy">{copied ? 'copied' : 'copy'}</span>
             </button>
-            <a className="btn btn--primary" href="#playground">
+            <a className="btn btn--primary" href="/playground/">
               Open the playground
             </a>
             <a className="link-more" href="/docs/">
@@ -79,12 +78,13 @@ export function Hero() {
               refractionStrength: 28,
               bezelWidth: 36,
               thickness: 26,
-              chromaticAberration: 0.4,
+              chromaticAberration: 0.18,
               tintOpacity: 0.03,
               appearance: 'dark',
               edgeHighlight: 0.95,
               specularStrength: 0.12,
               borderRadius: 28,
+              cursorTracking: true,
             }}
           >
             <div className="hero-card__body">
@@ -97,13 +97,9 @@ export function Hero() {
                   <small>drag me. The scene bends beneath.</small>
                 </div>
               </div>
-              <div className="hero-card__meter" aria-hidden>
-                <i style={{ width: '72%' }} />
-              </div>
               <div className="hero-card__chips" aria-hidden>
-                <span>snell</span>
-                <span>fresnel</span>
-                <span>60 fps</span>
+                <span>clear center</span>
+                <span>refractive edge</span>
               </div>
             </div>
           </LiquidGlass>

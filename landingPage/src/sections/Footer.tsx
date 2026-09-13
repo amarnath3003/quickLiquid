@@ -26,14 +26,14 @@ export function Footer() {
               GitHub
             </a>
             <a
-              href="https://github.com/amarnath3003/quickLiquid/blob/main/packages/quick-liquid/PHYSICS.md"
+              href="https://github.com/amarnath3003/quickLiquid/blob/master/packages/quick-liquid/PHYSICS.md"
               target="_blank"
               rel="noreferrer"
             >
               the physics
             </a>
             <a href="/docs/">docs</a>
-            <a href="/#playground">playground</a>
+            <a href="/playground/">playground</a>
           </nav>
         </div>
         <p className="footer-license">

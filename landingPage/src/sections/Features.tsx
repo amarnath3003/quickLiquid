@@ -9,12 +9,12 @@ const FEATURES = [
   {
     tag: 'Color',
     title: 'Prism edges without extra maps',
-    body: 'Dispersion is a linear per-channel scale on one shared map: three feDisplacementMap scales, zero extra generation. Turn the prism up without paying for it.',
+    body: 'RGB refraction shares one displacement map. Clear materials keep exact color sampling; heavy frost can skip the extra samples.',
   },
   {
     tag: 'Light',
     title: 'Rim light that reads as glass',
-    body: 'A two-lobe conic rim plus a soft bezel sheen gives the material an edge instead of a generic blur fog.',
+    body: 'Directional highlights rotate from a precomputed light field. A finer rim and restrained reflection preserve the view through the glass.',
   },
   {
     tag: 'Cache',

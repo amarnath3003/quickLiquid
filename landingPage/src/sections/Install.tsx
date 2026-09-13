@@ -91,7 +91,7 @@ export function Install() {
               <code>LiquidGlassEngine</code>).
             </li>
             <li>
-              <b>Tune</b> the physics in the <a href="#playground">playground</a> and paste the
+              <b>Tune</b> the physics in the <a href="/playground/">playground</a> and paste the
               config back into your app.
             </li>
           </ol>

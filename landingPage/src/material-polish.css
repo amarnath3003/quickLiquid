@@ -1,0 +1,36 @@
+/* Material upgrade: keep the existing brand and routes, stabilize the hero. */
+.hero { min-height: auto; padding-top: 112px; padding-bottom: 48px; }
+.hero-inner { grid-template-columns: minmax(0, 1.12fr) minmax(0, .95fr); gap: 36px; }
+.hero-copy { min-width: 0; }
+.hero h1 { font-size: clamp(42px, 4.8vw, 66px); line-height: 1.06; letter-spacing: -.04em; }
+.hero-sub { max-width: 490px; font-size: 17px; }
+.hero-actions { gap: 14px 20px; }
+.hero-actions .link-more { font-size: 14px; white-space: nowrap; }
+.hero-stage { min-height: 460px; }
+.hero-card { width: min(370px, 82%); margin-left: calc(min(370px, 82%) / -2); margin-top: -102px; min-height: 204px; }
+.hero-card__body { padding: 28px; }
+.hero-card__row { margin-bottom: 36px; }
+.hero-card__row small { font-size: 12px; line-height: 1.5; }
+.hero-card__chips { gap: 8px; flex-wrap: wrap; }
+.hero-card__chips span { font-size: 10px; }
+.hero-stage .hs-beam { opacity: .68; filter: blur(38px); }
+.hero-stage .hs-glow { opacity: .76; }
+.hero-stage .hs-grid { opacity: .34; background-size: 34px 34px; }
+.hero-stage .hs-word { color: rgba(237, 245, 247, .22); }
+.hero-stage .hs-ball { filter: saturate(1.12) drop-shadow(0 12px 24px rgba(0, 0, 0, .24)); }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--acc-a); outline-offset: 4px; }
+@media (max-width: 1000px) {
+  .hero-inner { grid-template-columns: minmax(0, 1fr); gap: 30px; }
+  .hero h1 { font-size: clamp(42px, 7vw, 64px); }
+  .hero-stage { min-height: 400px; }
+}
+@media (max-width: 720px) {
+  .hero { padding: 98px 18px 30px; }
+  .hero h1 { font-size: clamp(35px, 8.8vw, 50px); line-height: 1.08; }
+  .hero-sub { font-size: 16px; }
+  .hero-stage { height: 350px; min-height: 350px; }
+  .hero-card { width: min(320px, 88%); margin-left: calc(min(320px, 88%) / -2); }
+  .hero-card__body { padding: 22px; }
+  .hero-card__row { margin-bottom: 30px; }
+  .hero-actions .link-more { width: auto; }
+}

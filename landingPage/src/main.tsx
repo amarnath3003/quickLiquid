@@ -4,6 +4,7 @@ import '@fontsource-variable/outfit';
 import '@fontsource-variable/jetbrains-mono';
 import App from './App';
 import './styles.css';
+import './material-polish.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

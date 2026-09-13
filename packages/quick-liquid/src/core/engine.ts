@@ -1,181 +1,8 @@
-/**
- * quick-liquid/core/engine.ts — LIQUID GLASS ENGINE v7
- *
- * ┌────────────────────────────────────────────────────────────────┐
- * │  EXACT OPTICS MODEL                                            │
- * │                                                                │
- * │  The glass is a slab of thickness T lying on the backdrop.     │
- * │  Its top face is flat in the center and rolls off through a    │
- * │  convex bezel of width B at the edge (circular-arc profile):   │
- * │                                                                │
- * │      z(d) = T·√(s·(2−s)),  s = d/B   (d = distance from edge)  │
- * │                                                                │
- * │  A view ray (0,0,−1) hits the curved face and refracts by the  │
- * │  vector form of Snell's law (η = 1/ior):                       │
- * │                                                                │
- * │      t = η·v + (η·cosθi − cosθt)·n̂                             │
- * │                                                                │
- * │  then travels down through depth z(d) to the backdrop. The     │
- * │  lateral offset it accumulates is the refraction displacement: │
- * │                                                                │
- * │      Δ(s) = z(s) · |t_xy| / |t_z|         (points INWARD)      │
- * │                                                                │
- * │  Δ is zero at the rim (z→0), zero in the flat center (slope→0) │
- * │  and peaks inside the bezel band — the characteristic Apple    │
- * │  "clear center, bent rim" look falls out of the physics.       │
- * │                                                                │
- * │  KEY OPTIMIZATIONS (vs naive per-pixel raytrace)               │
- * │  1. Δ depends ONLY on s ⇒ 512-entry LUT, no per-pixel trig.    │
- * │  2. Interior is exactly neutral ⇒ Uint32 fill + bezel-band     │
- * │     iteration only (~perimeter·B px instead of w·h).           │
- * │  3. Field is odd under mirroring ⇒ compute one quadrant,       │
- * │     write four pixels.                                         │
- * │  4. Full-range 8-bit encoding: map normalized to Δmax, filter  │
- * │     scale = 2·Δmax ⇒ quantization step Δmax/127 px (~0.1px),   │
- * │     the minimum possible for 8-bit maps. Ordered dithering     │
- * │     converts the residual into invisible noise.                │
- * │  5. Chromatic aberration = per-channel LINEAR scale of the     │
- * │     same field ⇒ ONE map + three feDisplacementMap scale       │
- * │     attributes (not three maps).                               │
- * │  6. Maps are cached & refcounted by geometry key ⇒ N cards of  │
- * │     the same size share one map. Strength/CA changes only      │
- * │     touch `scale` attributes (no regeneration).                │
- * │                                                                │
- * │  LAYER STACK (bottom → top)                                    │
- * │   .ql-lens   z:0  backdrop-filter: url(#lens) saturate blur    │
- * │   .ql-tint   z:1  near-transparent material tint               │
- * │   .ql-sheen  z:2  bezel-band conic light sweep (soft)          │
- * │   .ql-rim    z:3  1.25px conic rim: 2 bright lobes at the      │
- * │                   light angle & its mirror — Apple signature   │
- * │   .ql-noise  z:5  optional micro-texture (off by default)      │
- * │   .ql-content z:10 children                                    │
- * └────────────────────────────────────────────────────────────────┘
- */
-
-export interface LiquidGlassConfig {
-  // Material system
-  material?: 'clear' | 'thin' | 'regular' | 'thick' | 'ultra' | 'adaptive';
-
-  // Frost & color
-  blur: number;                 // backdrop blur px (center frost)
-  saturation: number;           // backdrop saturation boost
-  tint: string;                 // 'r, g, b'
-  tintOpacity: number;
-
-  // Refraction geometry (all in CSS px — physical!)
-  refractionStrength: number;   // max rim displacement in px (0 disables)
-  bezelWidth: number;           // width of the curved bezel band
-  thickness: number;            // glass slab depth (shapes the falloff + shadow)
-  ior: number;                  // index of refraction (1.4–1.6 = glass)
-
-  // Chromatic aberration: 0..1 → per-channel dispersion of the SAME field
-  chromaticAberration: number;
-
-  // Lighting
-  lightAngle: number;           // degrees, 0 = light from top
-  edgeHighlight: number;        // crisp rim intensity 0..1
-  specularStrength: number;     // bezel sheen intensity 0..1
-  fresnelPower?: number;        // rim lobe sharpness (1 wide … 4 tight)
-
-  // Interaction
-  hoverLighting: boolean;
-  cursorTracking: boolean;
-  parallax: boolean;
-  inertia: boolean;
-  dynamicLighting: boolean;     // alias → cursorTracking
-
-  // Depth
-  elevation: number;            // shadow strength multiplier
-
-  // Texture
-  noiseOpacity: number;
-  noiseScale: number;
-
-  // Base
-  borderRadius: number;
-  quality: 'high' | 'medium' | 'low';
-  refractionMode: 'auto' | 'svg' | 'css';
-
-  // Appearance (dark-mode pass)
-  // 'auto' follows prefers-color-scheme. Describes the backdrop BEHIND the
-  // glass, not the OS — pass 'dark' explicitly for glass over a dark panel
-  // inside a light page.
-  appearance?: 'light' | 'dark' | 'auto';
-  // 0 (black wallpaper) … 1 (white). When set, overrides the appearance-implied
-  // value and drives rim/sheen intensity derivation. Hook for host apps that
-  // sample their own wallpaper (roadmap §2.6).
-  backdropLuminance?: number;
-
-  // ── Legacy keys (v6) — accepted, mapped or ignored ──
-  edgeBlurModifier?: number;    // ignored (single-pass lens now)
-  adaptiveTint?: boolean;
-  tintStrength?: number;
-  environmentSampling?: 'none' | 'fast' | 'high-quality';
-  distortionStrength?: number;  // alias of refractionStrength
-  edgeDistortion?: number;      // ignored (physics-exact bezel now)
-  caEdgeOnly?: boolean;         // ignored (CA is inherently edge-only now)
-  shadowDiffusion?: number;
-}
-
-export const DEFAULT_CONFIG: LiquidGlassConfig = {
-  blur: 3,
-  saturation: 1.5,
-  tint: '255, 255, 255',
-  tintOpacity: 0.04,
-
-  refractionStrength: 22,
-  bezelWidth: 34,
-  thickness: 24,
-  ior: 1.5,
-
-  chromaticAberration: 0.3,
-
-  lightAngle: -35,
-  edgeHighlight: 0.9,
-  specularStrength: 0.42,
-  fresnelPower: 2.2,
-
-  // Off by default: a hover-triggered rim brightening reads as a broken
-  // hover state in practice — light shouldn't change because a cursor
-  // entered the element. Opt-in only.
-  hoverLighting: false,
-  cursorTracking: false,
-  parallax: false,
-  inertia: true,
-  dynamicLighting: false,
-
-  elevation: 1,
-
-  noiseOpacity: 0,
-  noiseScale: 1,
-
-  borderRadius: 28,
-  quality: 'high',
-  refractionMode: 'auto',
-
-  appearance: 'auto',
-
-  tintStrength: 1,
-};
-
-/** Dark-appearance material tint (roadmap §1.3) — deep smoke, not gray.
-    Used only when the config still carries the default white tint. */
+import { DEFAULT_CONFIG, resolveGlassConfig, type LiquidGlassConfig } from './config';
+import { rasterizeLens, usesDispersion, filterPadding } from './optics';
+export { DEFAULT_CONFIG, MATERIAL_PRESETS, type LiquidGlassConfig } from './config';
 const DARK_TINT = '20, 24, 34';
-
-/** Backdrop luminance implied by appearance when not measured/configured. */
-const LUMA_LIGHT = 0.80;
-const LUMA_DARK = 0.10;
-
-export const MATERIAL_PRESETS: Record<string, Partial<LiquidGlassConfig>> = {
-  // Apple "clear" — transparent, strong lensing
-  clear:   { blur: 2,  saturation: 1.55, tintOpacity: 0.03, refractionStrength: 26, bezelWidth: 36, thickness: 26 },
-  thin:    { blur: 6,  saturation: 1.5,  tintOpacity: 0.05, refractionStrength: 18, bezelWidth: 26, thickness: 18 },
-  // Apple "regular" — frosted, softer lensing
-  regular: { blur: 14, saturation: 1.7,  tintOpacity: 0.09, refractionStrength: 16, bezelWidth: 30, thickness: 20 },
-  thick:   { blur: 22, saturation: 1.8,  tintOpacity: 0.13, refractionStrength: 12, bezelWidth: 28, thickness: 18 },
-  ultra:   { blur: 30, saturation: 1.85, tintOpacity: 0.17, refractionStrength: 10, bezelWidth: 26, thickness: 16 },
-  adaptive:{ blur: 12, saturation: 1.6,  tintOpacity: 0.06, refractionStrength: 18, bezelWidth: 30, thickness: 20, adaptiveTint: true },
-};
+const LUMA_LIGHT = 0.80, LUMA_DARK = 0.10;
 
 let uid = 0;
 
@@ -183,229 +10,83 @@ let uid = 0;
    REFRACTION LUT — the 1-D reduction.
 
    Everything about the displacement magnitude is a function of
-   s = d/B alone (for fixed T, B, ior). We tabulate the EXACT
-   Snell-traced Δ(s) once (512 samples), find Δmax analytically,
+   s = d/B alone (for fixed T, B, ior). We tabulate the
+   Snell-traced Δ(s) once (512 samples), normalize by its sampled peak,
    and store the normalized curve. Per-pixel cost then collapses
    to: SDF → s → lerp(LUT).
    ════════════════════════════════════════════════════════════════ */
-const LUT_N = 512;
-
-function buildRefractionLUT(T: number, B: number, ior: number): { lut: Float32Array; maxDisp: number } {
-  const lut = new Float32Array(LUT_N + 1);
-  const eta = 1 / ior;
-  let maxDisp = 0;
-
-  for (let i = 0; i <= LUT_N; i++) {
-    const s = i / LUT_N;
-    if (s <= 0 || s >= 1) { lut[i] = 0; continue; }
-
-    const root = Math.sqrt(s * (2 - s));       // √(s(2−s))
-    const z = T * root;                         // glass depth at this s
-    const slope = (T / B) * ((1 - s) / root);   // |dz/dd| — analytic derivative
-
-    // Snell (vector form) for view ray (0,−1) vs normal tilted by slope σ
-    const invL = 1 / Math.sqrt(1 + slope * slope);
-    const cosI = invL;
-    const sinI = slope * invL;
-    const sinT = eta * sinI;
-    const cosT = Math.sqrt(Math.max(0, 1 - sinT * sinT));
-    const k = eta * cosI - cosT;                // < 0 entering denser medium
-    const tXY = k * sinI;                       // lateral component (inward)
-    const tZ = -eta + k * cosI;                 // downward component
-    const disp = z * Math.abs(tXY / tZ);        // lateral walk through depth z
-
-    lut[i] = disp;
-    if (disp > maxDisp) maxDisp = disp;
-  }
-
-  if (maxDisp > 0) {
-    for (let i = 0; i <= LUT_N; i++) lut[i] /= maxDisp;
-  }
-  return { lut, maxDisp };
-}
-
-/* 4×4 Bayer matrix, pre-scaled to ±0.5 LSB — ordered dithering */
-const BAYER4 = (() => {
-  const m = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  return new Float32Array(m.map(v => v / 16 - 0.46875)); // centered
-})();
-
 interface LensMap {
-  url: string;
-  maxDisp: number;   // physical Δmax in px for scale normalization
-  refs: number;
-  genMs: number;
-  pixelsComputed: number;
+  url: string; genMs: number; encodeMs: number; pixelsComputed: number;
+  width: number; height: number; padX: number; padY: number; mapWidth: number; mapHeight: number;
 }
-
-/* Shared, refcounted displacement-map cache. Same-geometry elements
-   (e.g. a grid of equal cards) share ONE map. */
-const mapCache = new Map<string, LensMap | Promise<LensMap>>();
-
+interface MapEntry { refs: number; promise: Promise<LensMap>; map?: LensMap }
+const mapCache = new Map<string, MapEntry>();
+let cacheHits = 0, mapsGenerated = 0;
 function releaseMap(key: string): void {
   const entry = mapCache.get(key);
-  if (entry && !(entry instanceof Promise)) {
-    entry.refs--;
-    if (entry.refs <= 0) {
-      URL.revokeObjectURL(entry.url);
-      mapCache.delete(key);
-    }
+  if (!entry) return;
+  entry.refs--;
+  if (entry.refs === 0 && entry.map) {
+    URL.revokeObjectURL(entry.map.url);
+    mapCache.delete(key);
   }
 }
-
-/**
- * Generate (or fetch from cache) the displacement map for a given geometry.
- *
- * Encoding: R = 128 + dx·127, G = 128 + dy·127 where (dx,dy) is the
- * normalized inward displacement. feDisplacementMap `scale` is set to
- * 2·Δmax·userScale by the caller, so the full 8-bit range is used —
- * quantization error = Δmax/127 px, the theoretical minimum.
- */
 function acquireLensMap(
-  w: number, h: number, radius: number,
-  bezel: number, thickness: number, ior: number,
-  resCap: number,
+  w: number, h: number, radius: number, bezel: number, thickness: number, ior: number,
+  resCap: number, blur: number,
 ): Promise<{ map: LensMap; key: string }> {
+  // Keep high quality pixel-dense; medium intentionally trades resolution for cost.
   const rho = Math.min(1, resCap / Math.max(w, h));
-  const mw = Math.max(4, Math.round(w * rho));
-  const mh = Math.max(4, Math.round(h * rho));
-  const key = `${mw}x${mh}|${w}x${h}|r${radius}|b${bezel}|t${thickness}|n${ior}`;
-
-  const hit = mapCache.get(key);
-  if (hit) {
-    if (hit instanceof Promise) return hit.then(m => { m.refs++; return { map: m, key }; });
-    hit.refs++;
-    return Promise.resolve({ map: hit, key });
+  const mw = Math.max(4, Math.round(w * rho)), mh = Math.max(4, Math.round(h * rho));
+  const padding = filterPadding(blur);
+  const key = [w, h, mw, mh, radius, bezel, thickness, ior, padding].join('|');
+  let entry = mapCache.get(key);
+  if (entry) { entry.refs++; cacheHits++; }
+  else {
+    const t0 = performance.now();
+    const raster = rasterizeLens({ width: w, height: h, radius, bezel, thickness, ior, mapWidth: mw, mapHeight: mh, padding });
+    const canvas = document.createElement('canvas');
+    canvas.width = raster.width; canvas.height = raster.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return Promise.reject(new Error('Canvas 2D unavailable'));
+    ctx.putImageData(new ImageData(raster.data, raster.width, raster.height), 0, 0);
+    const genMs = performance.now() - t0, encodeStart = performance.now();
+    mapsGenerated++;
+    entry = { refs: 1, promise: new Promise<LensMap>((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('Unable to encode refraction map')); return; }
+        const { data: _data, ...dimensions } = raster;
+        resolve({ ...dimensions, url: URL.createObjectURL(blob), genMs, encodeMs: performance.now() - encodeStart });
+      }, 'image/png');
+    }) };
+    const owned = entry;
+    entry.promise = entry.promise.then(map => {
+      owned.map = map;
+      // Reservations are made BEFORE awaiting, so a stale waiter cannot revoke
+      // a URL that another pending consumer still owns.
+      return map;
+    }, error => { if (mapCache.get(key) === owned) mapCache.delete(key); throw error; });
+    mapCache.set(key, entry);
   }
-
-  const promise = generateLensMap(mw, mh, w, h, radius, bezel, thickness, ior).then(m => {
-    mapCache.set(key, m);
-    return m;
-  });
-  mapCache.set(key, promise);
-  return promise.then(m => { m.refs++; return { map: m, key }; });
+  return entry.promise.then(map => ({ map, key }));
 }
 
-function generateLensMap(
-  mw: number, mh: number, elW: number, elH: number,
-  radiusEl: number, bezelEl: number, thicknessEl: number, ior: number,
-): Promise<LensMap> {
-  const t0 = performance.now();
-
-  // Work in map space; convert geometry from element px
-  const sx = mw / elW;
-  const sy = mh / elH;
-  const s = Math.min(sx, sy);
-  const minDim = Math.min(elW, elH);
-  const rd = Math.min(radiusEl, minDim / 2) * s;
-  // Clamp bezel to the half-min-dimension so pills become full domes
-  // with zero slope at the medial axis (no ridge artifact).
-  const B = Math.min(bezelEl, minDim / 2) * s;
-  const T = thicknessEl * s;
-
-  const { lut, maxDisp } = buildRefractionLUT(T, B, ior);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = mw;
-  canvas.height = mh;
-  const ctx = canvas.getContext('2d')!;
-  const img = ctx.createImageData(mw, mh);
-  const buf32 = new Uint32Array(img.data.buffer);
-
-  // 1) Fill everything neutral (128,128,0,255) — one memset-speed pass.
-  //    Little-endian RGBA in Uint32 = 0xAABBGGRR.
-  buf32.fill(0xff008080);
-
-  const cx = mw / 2;
-  const cy = mh / 2;
-  const band = B + 1.5; // px past the bezel we still evaluate
-  const qw = Math.ceil(cx);
-  const qh = Math.ceil(cy);
-  let computed = 0;
-
-  // 2) Quadrant + band-limited iteration. For a quadrant pixel (x,y),
-  //    inside-distance d ≤ min(x,y)+0.5, so rows/cols beyond the band
-  //    (outside corner circles) are provably neutral — skipped wholesale.
-  const cornerSpan = Math.max(band, rd);
-  for (let py = 0; py < qh; py++) {
-    const ey = py + 0.5;
-    const rowInBand = ey <= band;
-    const xLimit = rowInBand ? qw : Math.min(qw, Math.ceil(ey <= cornerSpan ? cornerSpan : band));
-
-    for (let px = 0; px < xLimit; px++) {
-      const ex = px + 0.5;
-
-      // Analytic rounded-rect SDF + gradient (outward unit normal m̂).
-      // Quadrant pixel → offset into the top-left corner circle zone:
-      // qx > 0 ⟺ ex < rd (inside the corner square horizontally).
-      const qx = rd - ex;
-      const qy = rd - ey;
-      let d: number;      // inside distance from boundary
-      let mx: number;     // outward normal (element/map space)
-      let my: number;
-      if (qx > 0 && qy > 0) {
-        const len = Math.hypot(qx, qy);
-        d = rd - len;
-        if (len > 1e-6) { mx = -qx / len; my = -qy / len; }
-        else { mx = -0.7071; my = -0.7071; }
-      } else if (qx > qy) {
-        d = rd - qx; mx = -1; my = 0;   // left edge nearest
-      } else {
-        d = rd - qy; mx = 0; my = -1;   // top edge nearest
-      }
-
-      if (d <= 0 || d >= B) continue; // outside shape or flat center → neutral
-
-      computed++;
-
-      // LUT lookup with linear interpolation
-      const fs = (d / B) * LUT_N;
-      const i0 = fs | 0;
-      const frac = fs - i0;
-      const disp = lut[i0] + (lut[i0 + 1] - lut[i0]) * frac; // normalized 0..1
-
-      // Displacement points INWARD (−m̂): thick glass magnifies.
-      const dx = -mx * disp;
-      const dy = -my * disp;
-
-      // Ordered dither (±0.5 LSB) — kills banding at zero perceptual cost
-      const dth = BAYER4[(px & 3) + ((py & 3) << 2)];
-      const r1 = clamp8(128 + dx * 127 + dth);
-      const g1 = clamp8(128 + dy * 127 + dth);
-      const r2 = clamp8(128 - dx * 127 + dth); // x-mirrored
-      const g2 = clamp8(128 - dy * 127 + dth); // y-mirrored
-
-      const xm = mw - 1 - px;
-      const ym = mh - 1 - py;
-      // 4-fold symmetry: write all four quadrants at once
-      buf32[py * mw + px] = 0xff000000 | (g1 << 8) | r1;
-      buf32[py * mw + xm] = 0xff000000 | (g1 << 8) | r2;
-      buf32[ym * mw + px] = 0xff000000 | (g2 << 8) | r1;
-      buf32[ym * mw + xm] = 0xff000000 | (g2 << 8) | r2;
-    }
-  }
-
-  ctx.putImageData(img, 0, 0);
-  const genMs = performance.now() - t0;
-
-  return new Promise<LensMap>((resolve) => {
-    canvas.toBlob((blob) => {
-      const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png');
-      resolve({ url, maxDisp, refs: 0, genMs, pixelsComputed: computed });
-    }, 'image/png');
-  });
-}
-
-function clamp8(v: number): number {
-  return v < 0 ? 0 : v > 255 ? 255 : v | 0;
-}
-
-/* ════════════════════════════════════════════════════════════════
-   ENGINE
-   ════════════════════════════════════════════════════════════════ */
 export class LiquidGlassEngine {
   private el: HTMLElement;
   private cfg: LiquidGlassConfig;
+  private overrides: Partial<LiquidGlassConfig>;
+  private originalStyle: Map<string, [string, string]>;
+  private ownedContent: HTMLDivElement | null = null;
+  private rimDisk: HTMLDivElement | null = null;
+  private sheenDisk: HTMLDivElement | null = null;
+  private motionQuery: MediaQueryList | null = null;
+  private transparencyQuery: MediaQueryList | null = null;
+  private animations = new Set<Animation>();
+  private animationTimers = new Set<ReturnType<typeof setTimeout>>();
+  private lastLightTick = 0;
+  private _lightBakes = 0;
+  private _filterBuilds = 0;
+  private _mapError: string | null = null;
   public id: string;
 
   private lensLayer: HTMLDivElement | null = null;
@@ -443,7 +124,7 @@ export class LiquidGlassEngine {
   private _mapPixels = 0;
 
   private static _svgOk: boolean | null = null;
-  private pressHandlers: { down: () => void; up: () => void; leave: () => void } | null = null;
+  private pressHandlers: { down: (event: PointerEvent) => void; up: () => void; leave: () => void; reset: () => void } | null = null;
 
   // Dark-mode: live prefers-color-scheme tracking for appearance: 'auto'
   private schemeQuery: MediaQueryList | null = null;
@@ -461,17 +142,26 @@ export class LiquidGlassEngine {
       mapPixelsComputed: e._mapPixels,
       mapKey: e.mapRefKey,
       quality: e.cfg.quality,
+      dispTaps: e.dispNodes.length,
+      mapEncodeMs: e.lensMap?.encodeMs ?? 0,
+      mapBytes: e.lensMap ? e.lensMap.width * e.lensMap.height * 4 : 0,
+      lightBakes: e._lightBakes, filterBuilds: e._filterBuilds,
+      mapError: e._mapError,
     }));
     return {
       engineCount: engines.length,
       uniqueMaps: mapCache.size,
+      cacheHits, mapsGenerated,
       engines,
     };
   }
 
   constructor(element: HTMLElement, config: Partial<LiquidGlassConfig> = {}) {
     this.el = element;
-    this.cfg = LiquidGlassEngine.resolveConfig(config);
+    this.overrides = { ...config };
+    this.cfg = resolveGlassConfig(this.overrides);
+    this.originalStyle = new Map(['position', 'border-radius', 'overflow', 'box-shadow', 'transform', 'opacity', 'animation', 'transition', 'visibility']
+      .map(key => [key, [element.style.getPropertyValue(key), element.style.getPropertyPriority(key)]]));
     this.id = `ql${++uid}`;
     this.currentAngle = this.cfg.lightAngle;
     this.targetAngle = this.cfg.lightAngle;
@@ -480,18 +170,6 @@ export class LiquidGlassEngine {
       (globalThis as any).__QUICK_LIQUID__ = { metrics: () => LiquidGlassEngine.collectMetrics() };
     }
     this.mount();
-  }
-
-  private static resolveConfig(config: Partial<LiquidGlassConfig>): LiquidGlassConfig {
-    let merged: LiquidGlassConfig = { ...DEFAULT_CONFIG, ...config };
-    if (merged.material && MATERIAL_PRESETS[merged.material]) {
-      merged = { ...DEFAULT_CONFIG, ...MATERIAL_PRESETS[merged.material], ...config };
-    }
-    if (config.distortionStrength !== undefined && config.refractionStrength === undefined) {
-      merged.refractionStrength = config.distortionStrength;
-    }
-    if (merged.dynamicLighting) merged.cursorTracking = true;
-    return merged;
   }
 
   /* ─────────────────────────── MOUNT ─────────────────────────── */
@@ -508,12 +186,25 @@ export class LiquidGlassEngine {
     this.lastW = el.offsetWidth;
     this.lastH = el.offsetHeight;
 
+    // React supplies this wrapper; vanilla users get the same content stacking.
+    if (!this._contentEl()) {
+      this.ownedContent = document.createElement('div');
+      this.ownedContent.className = 'ql-content';
+      this.ownedContent.style.cssText = 'position:relative;z-index:10';
+      this.ownedContent.append(...Array.from(el.childNodes));
+      el.append(this.ownedContent);
+    }
+    this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+    this.transparencyQuery = matchMedia('(prefers-reduced-transparency: reduce)');
+    this.motionQuery.addEventListener('change', this.onPreferences);
+    this.transparencyQuery.addEventListener('change', this.onPreferences);
     this.createLayers();
     this.applyDepth();
-    void this.rebuildLensFilter();
+    this.queueRebuild();
 
     this.resizeObs = new ResizeObserver(() => this.onResize());
     this.resizeObs.observe(el);
+    document.addEventListener('visibilitychange', this.onVisibility);
 
     this.syncPointerListeners();
     this.syncSchemeListener();
@@ -543,6 +234,7 @@ export class LiquidGlassEngine {
         if (this.destroyed) return;
         // Appearance flips: restyle tint/rings/shadow — geometry (maps) unchanged.
         this.updateTint();
+        this.bakeLight();
         this.updateRings();
         this.applyDepth();
       };
@@ -554,19 +246,50 @@ export class LiquidGlassEngine {
     }
   }
 
-  private onResize(): void {
+  private reduceMotion(): boolean { return this.cfg.respectPreferences !== false && !!this.motionQuery?.matches; }
+  private reduceTransparency(): boolean { return this.cfg.respectPreferences !== false && !!this.transparencyQuery?.matches; }
+  private onVisibility = (): void => {
+    if (document.hidden) this.stopLight();
+  };
+  private onPreferences = (): void => {
     if (this.destroyed) return;
-    const w = this.el.offsetWidth;
-    const h = this.el.offsetHeight;
-    if (Math.abs(w - this.lastW) < 1 && Math.abs(h - this.lastH) < 1) return;
-    this.lastW = w;
-    this.lastH = h;
-    if (this.resizeRaf) cancelAnimationFrame(this.resizeRaf);
+    if (this.reduceMotion()) {
+      this.stopLight();
+      this.cancelAnimations();
+      this.currentAngle = this.targetAngle = this.cfg.lightAngle;
+      this.currentHoverGlow = this.targetHoverGlow = 0;
+      this.el.style.transform = this.originalStyle.get('transform')![0];
+      this.el.style.visibility = this.originalStyle.get('visibility')![0];
+    }
+    this.syncPointerListeners();
+    this.queueRebuild();
+    this.updateTint(); this.bakeLight(); this.updateRings();
+  };
+  private stopLight(): void {
+    if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.rafId = null; this.animatingLight = false; this.lastLightTick = 0;
+    this.angleVelocity = this.parallaxXVelocity = this.parallaxYVelocity = this.hoverGlowVelocity = 0;
+  }
+  private queueRebuild(): void {
+    ++this.lensBuildVersion; // invalidate an in-flight encode immediately
+    if (this.resizeRaf !== null || this.destroyed) return;
     this.resizeRaf = requestAnimationFrame(() => {
       this.resizeRaf = null;
-      this.updateRings(); // bezel clamp depends on element size
-      void this.rebuildLensFilter();
+      if (this.destroyed) return;
+      this.sizeLight(); this.bakeLight(); this.updateRings();
+      void this.rebuildLensFilter().catch(error => {
+        if (this.destroyed) return;
+        this._mapError = String(error);
+        this.teardownFilter(); this.updateLensStyle();
+      });
     });
+  }
+  private onResize(): void {
+    if (this.destroyed) return;
+    const w = this.el.offsetWidth, h = this.el.offsetHeight;
+    if (w === this.lastW && h === this.lastH) return;
+    this.lastW = w; this.lastH = h;
+    this.queueRebuild();
   }
 
   private createLayers(): void {
@@ -581,6 +304,7 @@ export class LiquidGlassEngine {
     const mk = (cls: string): HTMLDivElement => {
       const div = document.createElement('div');
       div.className = cls;
+      div.setAttribute('aria-hidden', 'true');
       Object.assign(div.style, {
         position: 'absolute',
         inset: '0',
@@ -594,16 +318,20 @@ export class LiquidGlassEngine {
     this.tintLayer = mk('ql-tint');
     this.sheenLayer = mk('ql-sheen');
     this.rimLayer = mk('ql-rim');
-    this.noiseLayer = mk('ql-noise');
+    this.noiseLayer = null;
+    this.rimDisk = document.createElement('div');
+    this.sheenDisk = document.createElement('div');
+    this.rimLayer.append(this.rimDisk);
+    this.sheenLayer.append(this.sheenDisk);
 
     const content = this._contentEl();
     for (const layer of [this.lensLayer, this.tintLayer, this.sheenLayer, this.rimLayer, this.noiseLayer]) {
-      this.el.insertBefore(layer, content);
+      if (layer) this.el.insertBefore(layer, content);
     }
 
     this.updateLensStyle();
     this.updateTint();
-    this.updateRings();
+    this.sizeLight(); this.bakeLight(); this.updateRings();
     this.updateNoise();
   }
 
@@ -616,6 +344,7 @@ export class LiquidGlassEngine {
 
   private lensFilterString(): string {
     const cfg = this.cfg;
+    if (this.reduceTransparency()) return 'none';
     const parts: string[] = [];
     if (this.svgEl) parts.push(`url(#${this.id})`);
     if (cfg.saturation !== 1) parts.push(`saturate(${cfg.saturation})`);
@@ -634,11 +363,12 @@ export class LiquidGlassEngine {
   private updateLensStyle(): void {
     if (!this.lensLayer) return;
     const bdf = this.lensFilterString();
-    const ref = this.svgEl ? this.id : null;
+    const ref = this.svgEl && !this.reduceTransparency() ? this.id : null;
 
     if (ref !== this.lensFilterRef) {
       const fresh = document.createElement('div');
       fresh.className = 'ql-lens';
+      fresh.setAttribute('aria-hidden', 'true');
       Object.assign(fresh.style, {
         position: 'absolute',
         inset: '0',
@@ -667,7 +397,7 @@ export class LiquidGlassEngine {
     const autoDark = this.isDark() &&
       cfg.tint.replace(/\s/g, '') === DEFAULT_CONFIG.tint.replace(/\s/g, '');
     const tint = autoDark ? DARK_TINT : cfg.tint;
-    const op = cfg.tintOpacity * (cfg.tintStrength ?? 1) * (autoDark ? 1.75 : 1);
+    const op = this.reduceTransparency() ? 1 : cfg.tintOpacity * (cfg.tintStrength ?? 1) * (autoDark ? 1.75 : 1);
     if (op <= 0) {
       this.tintLayer.style.background = 'none';
       return;
@@ -675,10 +405,10 @@ export class LiquidGlassEngine {
     // Flat material tint + a whisper of vertical light falloff.
     this.tintLayer.style.background = [
       `linear-gradient(180deg,
-        rgba(${tint}, ${(op * 1.2).toFixed(4)}) 0%,
-        rgba(${tint}, ${(op * 0.85).toFixed(4)}) 100%)`,
+        rgba(${tint}, ${(this.reduceTransparency() ? 1 : op * 1.2).toFixed(4)}) 0%,
+        rgba(${tint}, ${(this.reduceTransparency() ? 1 : op * 0.85).toFixed(4)}) 100%)`,
     ].join(', ');
-    this.tintLayer.style.mixBlendMode = cfg.adaptiveTint ? 'overlay' : 'normal';
+    this.tintLayer.style.mixBlendMode = cfg.adaptiveTint && !this.reduceTransparency() ? 'overlay' : 'normal';
   }
 
   /* ─────────────── LAYERS 2+3: CONIC LIGHT RINGS ───────────────
@@ -706,7 +436,7 @@ export class LiquidGlassEngine {
   ): string {
     // I(θ) = base + peak·|cos(θ−θL)|^p  (white)  −  dark·|sin(θ−θL)|^2 (flanks)
     const stops: string[] = [];
-    const STEP = 10;
+    const STEP = 4;
     for (let a = 0; a <= 360; a += STEP) {
       const rel = ((a - angleDeg) * Math.PI) / 180;
       const c = Math.abs(Math.cos(rel));
@@ -722,49 +452,51 @@ export class LiquidGlassEngine {
     return `conic-gradient(from 0deg at 50% 50%, ${stops.join(', ')})`;
   }
 
+  private sizeLight(): void {
+    const diameter = Math.ceil(Math.hypot(this.lastW, this.lastH)) + 4;
+    const bezel = Math.min(this.cfg.bezelWidth, this.lastW / 2, this.lastH / 2);
+    if (this.rimLayer) Object.assign(this.rimLayer.style, this.ringMask(1), { overflow: 'hidden' });
+    if (this.sheenLayer) Object.assign(this.sheenLayer.style, this.ringMask(Math.max(2, bezel * 0.45)), { overflow: 'hidden', filter: 'none' });
+    for (const disk of [this.rimDisk, this.sheenDisk]) if (disk) {
+      Object.assign(disk.style, { position: 'absolute', width: diameter + 'px', height: diameter + 'px', left: '50%', top: '50%' });
+    }
+  }
+  /** Rotation-equivariant lighting: bake gradients only when the material changes. */
+  private bakeLight(): void {
+    this._lightBakes++;
+    const cfg = this.cfg, L = this.backdropLuma();
+    const p = cfg.fresnelPower ?? 2.2;
+    if (this.rimDisk) {
+      const hi = cfg.edgeHighlight * (0.65 + 0.44 * L);
+      this.rimDisk.style.background = this.conicStops(0, p, hi * 0.86, hi * 0.075, hi * 0.035);
+    }
+    if (this.sheenDisk) {
+      const sp = cfg.specularStrength * (0.4 + 0.65 * L);
+      this.sheenDisk.style.background = this.conicStops(0, p, sp * 0.23, 0, sp * 0.16);
+    }
+  }
   private updateRings(): void {
-    const cfg = this.cfg;
-    const angle = this.currentAngle;
-    const p = Math.max(1, Math.min(6, cfg.fresnelPower ?? 2.2));
-    const glow = 1 + 0.3 * this.currentHoverGlow;
-
-    // Luminance-derived intensity (roadmap §1.3): a white rim pops far harder
-    // against a dark backdrop (higher perceived contrast) and the wide sheen
-    // wash reads as gray film — ease both down as the backdrop darkens. At the
-    // light-scene luminance (0.8) both scales ≈ 1, so light tuning is unchanged.
-    const L = this.backdropLuma();
-    const rimScale = 0.55 + 0.56 * L;    // L=0.1 → 0.61: crisp, not neon
-    const sheenScale = 0.35 + 0.81 * L;  // L=0.1 → 0.43: no milky wash
-
-    if (this.rimLayer) {
-      const hi = cfg.edgeHighlight * glow * rimScale;
-      // Dark: raise the uniform base term a touch so the full edge hairline
-      // stays defined where the lobes fade (Apple's dark glass keeps it).
-      const base = 0.16 + 0.10 * Math.max(0, LUMA_LIGHT - L);
-      Object.assign(this.rimLayer.style, this.ringMask(1.25));
-      this.rimLayer.style.background = this.conicStops(angle, p, hi * 0.85, hi * base, 0);
-    }
-
-    if (this.sheenLayer) {
-      const sp = cfg.specularStrength * glow * sheenScale;
-      const bezel = Math.min(cfg.bezelWidth, Math.min(this.lastW || 999, this.lastH || 999) / 2);
-      Object.assign(this.sheenLayer.style, this.ringMask(Math.max(4, bezel)));
-      this.sheenLayer.style.background = [
-        this.conicStops(angle, p * 0.75, sp * 0.28, sp * 0.02, sp * 0.14),
-      ].join(', ');
-      // Soft inner falloff so the sheen fades toward the bezel's inner edge
-      this.sheenLayer.style.filter = 'blur(3px)';
-    }
+    const rot = `translate(-50%,-50%) rotate(${this.currentAngle}deg)`;
+    for (const disk of [this.rimDisk, this.sheenDisk]) if (disk) disk.style.transform = rot;
+    // Reserve intensity headroom, then animate opacity, not gradient strings.
+    const opacity = String(this.reduceTransparency() ? 0 : 0.82 + 0.18 * this.currentHoverGlow);
+    if (this.rimLayer) this.rimLayer.style.opacity = opacity;
+    if (this.sheenLayer) this.sheenLayer.style.opacity = opacity;
   }
 
   /* ─────────────────── NOISE ─────────────────── */
   private updateNoise(): void {
-    if (!this.noiseLayer) return;
     const cfg = this.cfg;
     if (cfg.noiseOpacity <= 0) {
-      this.noiseLayer.style.backgroundImage = 'none';
-      this.noiseLayer.style.opacity = '0';
+      this.noiseLayer?.remove(); this.noiseLayer = null;
       return;
+    }
+    if (!this.noiseLayer) {
+      this.noiseLayer = document.createElement('div');
+      this.noiseLayer.className = 'ql-noise';
+      this.noiseLayer.setAttribute('aria-hidden', 'true');
+      Object.assign(this.noiseLayer.style, { position: 'absolute', inset: '0', borderRadius: 'inherit', pointerEvents: 'none' });
+      this.el.insertBefore(this.noiseLayer, this._contentEl());
     }
     const noiseSvg = `data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E`;
     Object.assign(this.noiseLayer.style, {
@@ -810,7 +542,8 @@ export class LiquidGlassEngine {
 
   private detectSVGSupport(): boolean {
     if (typeof document === 'undefined') return false;
-    // Live DOM probe — CSS.supports() lies about backdrop-filter: url().
+    // Computed-style probe, not proof of rendered support. Applications can
+    // force CSS fallback; visual QA must also verify actual displacement.
     try {
       const svgNS = 'http://www.w3.org/2000/svg';
       const svg = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
@@ -843,7 +576,7 @@ export class LiquidGlassEngine {
   /** Per-channel dispersion scales. Blue refracts more than red in real
       glass; sampling is inward so blue gets the LARGER scale. */
   private channelScales(): { r: number; g: number; b: number; base: number } {
-    const M = this.lensMap?.maxDisp || 1;
+    const M = this.cfg.ior > 1 ? 1 : 0;
     // Full-range encoding ⇒ scale 2·target reproduces `target` px at the rim.
     const base = 2 * this.cfg.refractionStrength * (M > 0 ? 1 : 0);
     const ca = this.cfg.chromaticAberration;
@@ -859,20 +592,20 @@ export class LiquidGlassEngine {
     const buildVersion = ++this.lensBuildVersion;
     const cfg = this.cfg;
 
-    if (!this.shouldUseSVG() || cfg.refractionStrength <= 0) {
+    if (!this.shouldUseSVG() || cfg.refractionStrength <= 0 || cfg.ior <= 1 || this.reduceTransparency()) {
       this.teardownFilter();
       this.updateLensStyle();
       return;
     }
 
-    const w = this.el.offsetWidth || this.lastW || 200;
-    const h = this.el.offsetHeight || this.lastH || 100;
+    const w = this.el.offsetWidth;
+    const h = this.el.offsetHeight;
     if (w < 8 || h < 8) return;
 
     const resCap = cfg.quality === 'low' ? 128 : cfg.quality === 'medium' ? 384 : 1024;
-    const radius = Math.round(Math.min(cfg.borderRadius, Math.min(w, h) / 2));
+    const radius = Math.min(cfg.borderRadius, Math.min(w, h) / 2);
 
-    const { map, key } = await acquireLensMap(w, h, radius, cfg.bezelWidth, cfg.thickness, cfg.ior, resCap);
+    const { map, key } = await acquireLensMap(w, h, radius, cfg.bezelWidth, cfg.thickness, cfg.ior, resCap, cfg.blur);
     if (this.destroyed || buildVersion !== this.lensBuildVersion) {
       releaseMap(key); // a newer rebuild superseded us — hand the ref back
       return;
@@ -889,7 +622,8 @@ export class LiquidGlassEngine {
     this._mapGenMs = map.genMs;
     this._mapPixels = map.pixelsComputed;
 
-    this.buildFilterDOM(w, h, map.url);
+    this._mapError = null;
+    this.buildFilterDOM(w, h, map);
     // Force a fresh lens node: the old <svg> was replaced, and Chromium only
     // resolves url() references reliably on newly-composited elements.
     this.lensFilterRef = '__stale__';
@@ -903,19 +637,26 @@ export class LiquidGlassEngine {
     this.lensMap = null;
   }
 
-  private buildFilterDOM(w: number, h: number, mapUrl: string): void {
+  private buildFilterDOM(w: number, h: number, map: LensMap): void {
+    this._filterBuilds++;
     if (this.svgEl) { this.svgEl.remove(); this.svgEl = null; }
     this.dispNodes = [];
 
-    const { r, g, b, base } = this.channelScales();
-    const useCA = this.cfg.chromaticAberration > 0.01 && this.cfg.quality !== 'low';
-    const pad = Math.ceil(base / 2) + 4;
+    const { r, g, b } = this.channelScales();
+    const useCA = usesDispersion(this.cfg.refractionStrength, this.cfg.chromaticAberration, this.cfg.blur, this.cfg.quality, this.cfg.dispersionMode);
+    const pad = filterPadding(this.cfg.blur);
+    const px = map.padX * w / map.mapWidth, py = map.padY * h / map.mapHeight;
+    const mapImage = `<feImage href="${map.url}" result="encoded" preserveAspectRatio="none" x="${-px}" y="${-py}" width="${w + 2 * px}" height="${h + 2 * py}"/>
+      <feComponentTransfer in="encoded" result="map">
+        <feFuncR type="linear" slope="${255 / 254}" intercept="${-1 / 254}"/>
+        <feFuncG type="linear" slope="${255 / 254}" intercept="${-1 / 254}"/>
+      </feComponentTransfer>`;
 
     let content: string;
     if (useCA) {
       // ONE map, three scales — dispersion is linear in the field.
       content = `
-        <feImage href="${mapUrl}" result="map" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
+        ${mapImage}
         <feDisplacementMap in="SourceGraphic" in2="map" scale="${r.toFixed(2)}" xChannelSelector="R" yChannelSelector="G" result="dR"/>
         <feDisplacementMap in="SourceGraphic" in2="map" scale="${g.toFixed(2)}" xChannelSelector="R" yChannelSelector="G" result="dG"/>
         <feDisplacementMap in="SourceGraphic" in2="map" scale="${b.toFixed(2)}" xChannelSelector="R" yChannelSelector="G" result="dB"/>
@@ -932,7 +673,7 @@ export class LiquidGlassEngine {
         <feBlend in="rg" in2="cB" mode="screen"/>`;
     } else {
       content = `
-        <feImage href="${mapUrl}" result="map" preserveAspectRatio="none" x="0" y="0" width="${w}" height="${h}"/>
+        ${mapImage}
         <feDisplacementMap in="SourceGraphic" in2="map" scale="${g.toFixed(2)}" xChannelSelector="R" yChannelSelector="G"/>`;
     }
 
@@ -970,7 +711,7 @@ export class LiquidGlassEngine {
   private _pointerEnterHandler?: () => void;
 
   private setupPointer(): void {
-    this.teardownPointer();
+    if (this._pointerMoveHandler) return;
 
     this._pointerEnterHandler = () => {
       if (this.cfg.hoverLighting) {
@@ -981,6 +722,7 @@ export class LiquidGlassEngine {
 
     this._pointerMoveHandler = (e: PointerEvent) => {
       const rect = this.el.getBoundingClientRect();
+      if (!rect.width || !rect.height || e.pointerType === 'touch') return;
       const px = (e.clientX - rect.left) / rect.width;
       const py = (e.clientY - rect.top) / rect.height;
       if (this.cfg.cursorTracking) {
@@ -1013,153 +755,123 @@ export class LiquidGlassEngine {
   }
 
   private kickLight(): void {
-    if (!this.animatingLight) { this.animatingLight = true; this.tickLight(); }
-  }
-
-  private tickLight(): void {
-    if (this.destroyed) return;
-    const t0 = performance.now();
-    const cfg = this.cfg;
-
-    let diff = this.targetAngle - this.currentAngle;
-    diff = ((diff + 540) % 360) - 180;
-
-    let isMoving = false;
-    let ringsDirty = false;
-
-    if (Math.abs(diff) > 0.1 || Math.abs(this.angleVelocity) > 0.01) {
-      isMoving = true;
-      ringsDirty = true;
-      if (cfg.inertia) {
-        this.angleVelocity = (this.angleVelocity + diff * 0.15) * 0.6;
-        this.currentAngle += this.angleVelocity;
-      } else {
-        this.currentAngle += diff * 0.12;
-      }
-    } else {
-      this.currentAngle = this.targetAngle;
-      this.angleVelocity = 0;
-    }
-
-    if (cfg.parallax) {
-      const pDiffX = this.targetParallaxX - this.currentParallaxX;
-      const pDiffY = this.targetParallaxY - this.currentParallaxY;
-      if (Math.abs(pDiffX) > 0.001 || Math.abs(pDiffY) > 0.001 ||
-          Math.abs(this.parallaxXVelocity) > 0.001 || Math.abs(this.parallaxYVelocity) > 0.001) {
-        isMoving = true;
-        if (cfg.inertia) {
-          this.parallaxXVelocity = (this.parallaxXVelocity + pDiffX * 0.1) * 0.7;
-          this.parallaxYVelocity = (this.parallaxYVelocity + pDiffY * 0.1) * 0.7;
-          this.currentParallaxX += this.parallaxXVelocity;
-          this.currentParallaxY += this.parallaxYVelocity;
-        } else {
-          this.currentParallaxX += pDiffX * 0.2;
-          this.currentParallaxY += pDiffY * 0.2;
-        }
-        this.el.style.transform = `perspective(1000px) rotateY(${this.currentParallaxX * 5}deg) rotateX(${-this.currentParallaxY * 5}deg)`;
-      } else {
-        this.currentParallaxX = this.targetParallaxX;
-        this.currentParallaxY = this.targetParallaxY;
-        this.parallaxXVelocity = 0;
-        this.parallaxYVelocity = 0;
-      }
-    }
-
-    if (cfg.hoverLighting) {
-      const gDiff = this.targetHoverGlow - this.currentHoverGlow;
-      if (Math.abs(gDiff) > 0.005 || Math.abs(this.hoverGlowVelocity) > 0.005) {
-        isMoving = true;
-        ringsDirty = true;
-        this.hoverGlowVelocity = (this.hoverGlowVelocity + gDiff * 0.08) * 0.72;
-        this.currentHoverGlow += this.hoverGlowVelocity;
-      } else {
-        this.currentHoverGlow = this.targetHoverGlow;
-        this.hoverGlowVelocity = 0;
-      }
-    }
-
-    if (ringsDirty) this.updateRings();
-
-    if (!isMoving) {
-      this.animatingLight = false;
-      return;
-    }
-
-    const dt = performance.now() - t0;
-    this._lastTime = dt;
-    this._totalTime += dt;
-    this._frameCount++;
+    if (this.animatingLight || this.destroyed || this.reduceMotion() || document.hidden) return;
+    this.animatingLight = true;
+    this.lastLightTick = performance.now();
     this.rafId = requestAnimationFrame(() => this.tickLight());
   }
 
-  /* ─────────────────── ANIMATIONS (public) ─────────────────── */
-  enableLiquidPress(config?: { scale?: number; squish?: number }): void {
-    if (this.pressHandlers) return;
-    const scale = config?.scale ?? 0.94;
-    const squish = config?.squish ?? 0.025;
+  private tickLight(): void {
+    if (this.destroyed || this.reduceMotion() || document.hidden) { this.stopLight(); return; }
+    const t0 = performance.now();
+    const dt = Math.min(0.05, Math.max(0.001, (t0 - this.lastLightTick) / 1000));
+    this.lastLightTick = t0;
+    let moving = false;
+    // Closed-form critical damping. Equal elapsed time gives equal motion
+    // on 60Hz and 120Hz displays, unlike the old per-frame Euler constants.
+    const step = (value: number, target: number, velocity: number, threshold: number): [number, number] => {
+      if (Math.abs(target - value) < threshold && Math.abs(velocity) < threshold * 10) return [target, 0];
+      moving = true;
+      if (!this.cfg.inertia) return [target, 0];
+      const omega = 22, offset = value - target;
+      const c = velocity + omega * offset, decay = Math.exp(-omega * dt);
+      return [target + (offset + c * dt) * decay, (velocity - omega * c * dt) * decay];
+    };
+    const diff = ((this.targetAngle - this.currentAngle + 180) % 360 + 360) % 360 - 180;
+    [this.currentAngle, this.angleVelocity] = step(this.currentAngle, this.currentAngle + diff, this.angleVelocity, 0.08);
+    [this.currentHoverGlow, this.hoverGlowVelocity] = step(this.currentHoverGlow, this.targetHoverGlow, this.hoverGlowVelocity, 0.002);
+    if (this.cfg.parallax) {
+      [this.currentParallaxX, this.parallaxXVelocity] = step(this.currentParallaxX, this.targetParallaxX, this.parallaxXVelocity, 0.001);
+      [this.currentParallaxY, this.parallaxYVelocity] = step(this.currentParallaxY, this.targetParallaxY, this.parallaxYVelocity, 0.001);
+      this.el.style.transform = this.currentParallaxX || this.currentParallaxY
+        ? `perspective(1000px) rotateY(${this.currentParallaxX * 5}deg) rotateX(${-this.currentParallaxY * 5}deg)`
+        : this.originalStyle.get('transform')![0];
+    }
+    this.updateRings();
+    this._lastTime = performance.now() - t0;
+    this._totalTime += this._lastTime;
+    this._frameCount++;
+    if (moving) this.rafId = requestAnimationFrame(() => this.tickLight());
+    else this.stopLight();
+  }
 
-    const onDown = () => {
-      if (this.destroyed) return;
-      this.el.style.transition = 'none';
+  /* ─────────────────── ANIMATIONS (public) ─────────────────── */
+  private cancelAnimations(): void {
+    for (const timer of this.animationTimers) clearTimeout(timer);
+    this.animationTimers.clear();
+    for (const animation of this.animations) animation.cancel();
+    this.animations.clear();
+  }
+  private async play(keyframes: Keyframe[], duration: number): Promise<boolean> {
+    if (this.destroyed || this.reduceMotion()) return false;
+    this.cancelAnimations();
+    const animation = this.el.animate(keyframes, { duration, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    this.animations.add(animation);
+    try { await animation.finished; return true; } catch { return false; }
+    finally { this.animations.delete(animation); }
+  }
+  enableLiquidPress(config?: { scale?: number; squish?: number }): void {
+    this.disableLiquidPress();
+    const scale = config?.scale ?? 0.96, squish = config?.squish ?? 0.018;
+    let pressed = false;
+    const onDown = (event: PointerEvent) => {
+      if (event.button !== 0 || this.destroyed || this.reduceMotion()) return;
+      pressed = true; this.cancelAnimations();
       this.el.style.transform = `scale(${1 + squish}, ${scale})`;
     };
     const onUp = () => {
-      if (this.destroyed) return;
-      this.el.style.transition = '';
-      this.el.style.animation = `ql-bounce-back 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards`;
-      this.el.addEventListener('animationend', () => {
-        this.el.style.animation = '';
-        this.el.style.transform = '';
-      }, { once: true });
+      if (!pressed || this.destroyed) return;
+      pressed = false;
+      const from = this.el.style.transform;
+      this.el.style.transform = this.originalStyle.get('transform')![0];
+      void this.play([{ transform: from }, { transform: 'scale(.99,1.015)', offset: .5 }, { transform: 'scale(1)' }], 380);
     };
-    const onLeave = () => {
-      if (this.destroyed) return;
-      if (this.el.style.transform && this.el.style.transform !== 'none') {
-        this.el.style.transition = '';
-        this.el.style.animation = `ql-bounce-back 0.4s cubic-bezier(0.34,1.2,0.64,1) forwards`;
-        this.el.addEventListener('animationend', () => {
-          this.el.style.animation = '';
-          this.el.style.transform = '';
-        }, { once: true });
-      }
-    };
-    this.pressHandlers = { down: onDown, up: onUp, leave: onLeave };
+    this.pressHandlers = { down: onDown, up: onUp, leave: onUp, reset: () => {
+      if (pressed) this.el.style.transform = this.originalStyle.get('transform')![0];
+      pressed = false;
+    } };
     this.el.addEventListener('pointerdown', onDown, { passive: true });
     this.el.addEventListener('pointerup', onUp, { passive: true });
-    this.el.addEventListener('pointerleave', onLeave, { passive: true });
-    LiquidGlassEngine.injectAnimationStyles();
+    this.el.addEventListener('pointerleave', onUp, { passive: true });
+    this.el.addEventListener('pointercancel', onUp, { passive: true });
   }
-
+  disableLiquidPress(): void {
+    if (!this.pressHandlers) return;
+    this.pressHandlers.reset();
+    this.el.removeEventListener('pointerdown', this.pressHandlers.down);
+    this.el.removeEventListener('pointerup', this.pressHandlers.up);
+    this.el.removeEventListener('pointerleave', this.pressHandlers.leave);
+    this.el.removeEventListener('pointercancel', this.pressHandlers.up);
+    this.pressHandlers = null;
+  }
   animateIn(delay = 0): void {
-    LiquidGlassEngine.injectAnimationStyles();
-    this.el.style.opacity = '0';
-    this.el.style.transform = 'scale(0.85)';
-    setTimeout(() => {
-      this.el.style.animation = `ql-appear 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards`;
-      this.el.addEventListener('animationend', () => {
-        this.el.style.animation = '';
-        this.el.style.opacity = '';
-        this.el.style.transform = '';
-      }, { once: true });
-    }, delay);
+    if (this.destroyed) return;
+    this.cancelAnimations();
+    this.el.style.visibility = this.originalStyle.get('visibility')![0];
+    if (this.reduceMotion()) return;
+    const start = () => {
+      if (this.destroyed) return;
+      // No host opacity: it would cut the lens off from the page backdrop.
+      void this.play([{ transform: 'scale(.94)' }, { transform: 'scale(1.012)', offset: .65 }, { transform: 'scale(1)' }], 420);
+    };
+    if (delay > 0) {
+      const timer = setTimeout(() => { this.animationTimers.delete(timer); start(); }, delay);
+      this.animationTimers.add(timer);
+    } else start();
   }
-
-  animateOut(): Promise<void> {
-    LiquidGlassEngine.injectAnimationStyles();
-    return new Promise(resolve => {
-      this.el.style.animation = `ql-disappear 0.35s cubic-bezier(0.4,0,1,1) forwards`;
-      this.el.addEventListener('animationend', () => {
-        this.el.style.animation = '';
-        resolve();
-      }, { once: true });
-    });
+  async animateOut(): Promise<void> {
+    if (this.destroyed) return;
+    const completed = this.reduceMotion() || await this.play([{ transform: 'scale(1)' }, { transform: 'scale(.94)' }], 180);
+    if (completed && !this.destroyed) this.el.style.visibility = 'hidden';
   }
-
   jiggle(intensity = 1): void {
-    LiquidGlassEngine.injectAnimationStyles();
-    this.el.style.setProperty('--ql-jiggle-intensity', String(intensity));
-    this.el.style.animation = `ql-jiggle 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards`;
-    this.el.addEventListener('animationend', () => { this.el.style.animation = ''; }, { once: true });
+    const i = Math.max(0, Math.min(3, intensity));
+    void this.play([
+      { transform: 'scale(1)' },
+      { transform: `scale(${1 + .025 * i},${1 - .018 * i})`, offset: .2 },
+      { transform: `scale(${1 - .016 * i},${1 + .012 * i})`, offset: .5 },
+      { transform: 'scale(1)' },
+    ], 480);
   }
 
   getElement(): HTMLElement { return this.el; }
@@ -1173,67 +885,72 @@ export class LiquidGlassEngine {
       quality: this.cfg.quality,
       mapGenMs: this._mapGenMs,
       mapPixelsComputed: this._mapPixels,
+      mapEncodeMs: this.lensMap?.encodeMs ?? 0,
+      displacementTaps: this.dispNodes.length,
+      lightBakes: this._lightBakes,
+      filterBuilds: this._filterBuilds,
+      mapError: this._mapError,
     };
   }
 
+  /** Patch explicit overrides. Pass undefined to remove an override. */
   updateConfig(config: Partial<LiquidGlassConfig>): void {
+    this.setConfig({ ...this.overrides, ...config });
+  }
+  /** Replace the declaration (used by React); omitted keys revert to the preset/default. */
+  setConfig(config: Partial<LiquidGlassConfig>): void {
     if (this.destroyed) return;
     const oldCfg = this.cfg;
-    this.cfg = LiquidGlassEngine.resolveConfig({ ...this.stripDefaults(oldCfg), ...config });
-
-    const cfg = this.cfg;
-    const geometryChanged =
-      oldCfg.borderRadius !== cfg.borderRadius ||
-      oldCfg.bezelWidth !== cfg.bezelWidth ||
-      oldCfg.thickness !== cfg.thickness ||
-      oldCfg.ior !== cfg.ior ||
-      oldCfg.quality !== cfg.quality ||
-      oldCfg.refractionMode !== cfg.refractionMode ||
-      (oldCfg.refractionStrength <= 0) !== (cfg.refractionStrength <= 0);
-
-    const caStructureChanged =
-      (oldCfg.chromaticAberration > 0.01) !== (cfg.chromaticAberration > 0.01);
-
-    this.el.style.borderRadius = `${cfg.borderRadius}px`;
-
-    if (geometryChanged || caStructureChanged) {
-      void this.rebuildLensFilter();
-    } else if (
-      oldCfg.refractionStrength !== cfg.refractionStrength ||
-      oldCfg.chromaticAberration !== cfg.chromaticAberration
-    ) {
-      this.updateFilterScales(); // zero-cost path for sliders
+    this.overrides = { ...config };
+    const cfg = this.cfg = resolveGlassConfig(this.overrides);
+    const changed = (...keys: (keyof LiquidGlassConfig)[]) => keys.some(k => oldCfg[k] !== cfg[k]);
+    if (!Object.keys({ ...oldCfg, ...cfg }).some(k => oldCfg[k as keyof LiquidGlassConfig] !== cfg[k as keyof LiquidGlassConfig])) return;
+    const graph = (c: LiquidGlassConfig) => usesDispersion(c.refractionStrength, c.chromaticAberration, c.blur, c.quality, c.dispersionMode);
+    const geometryChanged = changed('borderRadius', 'bezelWidth', 'thickness', 'ior', 'quality', 'refractionMode', 'respectPreferences')
+      || (oldCfg.refractionStrength <= 0) !== (cfg.refractionStrength <= 0)
+      || filterPadding(oldCfg.blur) !== filterPadding(cfg.blur) || graph(oldCfg) !== graph(cfg);
+    if (changed('borderRadius')) this.el.style.borderRadius = cfg.borderRadius + 'px';
+    if (geometryChanged) this.queueRebuild();
+    else if (changed('refractionStrength', 'chromaticAberration')) this.updateFilterScales();
+    if (changed('lightAngle')) {
+      this.targetAngle = cfg.lightAngle;
+      this.currentAngle = cfg.lightAngle; this.angleVelocity = 0;
+      this.updateRings();
     }
-
-    this.updateLensStyle();
-    this.updateTint();
-    this.updateRings();
-    this.updateNoise();
-    this.applyDepth();
-    this.syncPointerListeners();
-    this.syncSchemeListener();
-  }
-
-  /** Return only the keys that differ from DEFAULT_CONFIG so material
-      presets keep working across updateConfig merges. */
-  private stripDefaults(cfg: LiquidGlassConfig): Partial<LiquidGlassConfig> {
-    const out: Record<string, unknown> = {};
-    for (const k of Object.keys(cfg) as (keyof LiquidGlassConfig)[]) {
-      if (cfg[k] !== DEFAULT_CONFIG[k]) out[k as string] = cfg[k];
+    if (changed('blur', 'saturation', 'respectPreferences')) this.updateLensStyle();
+    if (changed('tint', 'tintOpacity', 'tintStrength', 'adaptiveTint', 'appearance', 'respectPreferences')) this.updateTint();
+    if (changed('edgeHighlight', 'specularStrength', 'fresnelPower', 'appearance', 'backdropLuminance', 'hoverLighting', 'respectPreferences')) {
+      this.bakeLight(); this.updateRings();
     }
-    return out as Partial<LiquidGlassConfig>;
+    if (changed('noiseOpacity', 'noiseScale')) this.updateNoise();
+    if (changed('elevation', 'thickness', 'appearance')) this.applyDepth();
+    if (changed('cursorTracking', 'parallax', 'hoverLighting', 'respectPreferences')) {
+      this.targetHoverGlow = 0;
+      if (!cfg.parallax) this.el.style.transform = this.originalStyle.get('transform')![0];
+      this.syncPointerListeners();
+    }
+    if (changed('appearance')) this.syncSchemeListener();
+    if (changed('respectPreferences')) this.onPreferences();
   }
+  getConfig(): Readonly<LiquidGlassConfig> { return { ...this.cfg }; }
 
   private syncPointerListeners(): void {
-    if (this.cfg.cursorTracking || this.cfg.hoverLighting || this.cfg.parallax) {
+    if (!this.reduceMotion() && (this.cfg.cursorTracking || this.cfg.hoverLighting || this.cfg.parallax)) {
       this.setupPointer();
     } else {
       this.teardownPointer();
+      this.stopLight();
     }
   }
 
   destroy(): void {
+    if (this.destroyed) return;
     this.destroyed = true;
+    this.cancelAnimations();
+    this.disableLiquidPress();
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    this.motionQuery?.removeEventListener('change', this.onPreferences);
+    this.transparencyQuery?.removeEventListener('change', this.onPreferences);
     LiquidGlassEngine._registry.delete(this);
     this.lensBuildVersion++;
     if (this.rafId) cancelAnimationFrame(this.rafId);
@@ -1244,12 +961,6 @@ export class LiquidGlassEngine {
       .forEach(l => l?.remove());
     this.lensLayer = this.tintLayer = this.sheenLayer = this.rimLayer = this.noiseLayer = null;
 
-    if (this.pressHandlers) {
-      this.el.removeEventListener('pointerdown', this.pressHandlers.down);
-      this.el.removeEventListener('pointerup', this.pressHandlers.up);
-      this.el.removeEventListener('pointerleave', this.pressHandlers.leave);
-      this.pressHandlers = null;
-    }
     this.teardownPointer();
     if (this.schemeQuery && this.schemeListener) {
       this.schemeQuery.removeEventListener('change', this.schemeListener);
@@ -1257,44 +968,13 @@ export class LiquidGlassEngine {
     this.schemeQuery = null;
     this.schemeListener = null;
 
-    const s = this.el.style;
-    s.filter = s.backdropFilter = s.boxShadow = s.backgroundColor = '';
-    s.borderRadius = s.overflow = s.isolation = s.transform = s.opacity = s.animation = '';
-    (s as any).WebkitFilter = (s as any).WebkitBackdropFilter = '';
-  }
-
-  private static _stylesInjected = false;
-  private static injectAnimationStyles(): void {
-    if (LiquidGlassEngine._stylesInjected) return;
-    LiquidGlassEngine._stylesInjected = true;
-    const style = document.createElement('style');
-    style.id = 'ql-animation-styles';
-    style.textContent = `
-      @keyframes ql-bounce-back {
-        0%   { transform: scale(1,1); }
-        40%  { transform: scale(1.03,0.97); }
-        70%  { transform: scale(0.99,1.01); }
-        100% { transform: scale(1,1); }
-      }
-      @keyframes ql-appear {
-        0%   { opacity:0; transform:scale(0.85); }
-        60%  { opacity:1; transform:scale(1.04); }
-        80%  { transform:scale(0.98); }
-        100% { opacity:1; transform:scale(1); }
-      }
-      @keyframes ql-disappear {
-        0%   { opacity:1; transform:scale(1); }
-        100% { opacity:0; transform:scale(0.9); }
-      }
-      @keyframes ql-jiggle {
-        0%   { transform:scale(1,1); }
-        15%  { transform:scale(calc(1 + 0.04*var(--ql-jiggle-intensity,1)),calc(1 - 0.03*var(--ql-jiggle-intensity,1))); }
-        30%  { transform:scale(calc(1 - 0.03*var(--ql-jiggle-intensity,1)),calc(1 + 0.025*var(--ql-jiggle-intensity,1))); }
-        50%  { transform:scale(calc(1 + 0.015*var(--ql-jiggle-intensity,1)),calc(1 - 0.012*var(--ql-jiggle-intensity,1))); }
-        70%  { transform:scale(calc(1 - 0.008*var(--ql-jiggle-intensity,1)),calc(1 + 0.006*var(--ql-jiggle-intensity,1))); }
-        100% { transform:scale(1,1); }
-      }
-    `;
-    document.head.appendChild(style);
+    if (this.ownedContent) {
+      this.ownedContent.replaceWith(...Array.from(this.ownedContent.childNodes));
+      this.ownedContent = null;
+    }
+    for (const [property, [value, priority]] of this.originalStyle) {
+      if (value) this.el.style.setProperty(property, value, priority);
+      else this.el.style.removeProperty(property);
+    }
   }
 }

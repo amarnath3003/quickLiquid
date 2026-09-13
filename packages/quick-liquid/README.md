@@ -79,6 +79,10 @@ Requirements:
 - React 18+ only if you use `quick-liquid/react`
 - No stylesheet import required
 
+## Playground
+
+Try the live lens at [quickliquid.vercel.app/playground](https://quickliquid.vercel.app/playground/). The playground includes six visual scenes—color, stock video, photography, typography, fine lines, and contrast—plus four tuned material presets and card, pill, and circle shapes. Drag the lens, tune the feel, and copy the resulting React configuration.
+
 ## Quick Start
 
 ### React
@@ -159,10 +163,12 @@ const config = {
 | `bezelWidth` | `number` | `34` | Width of the curved refractive bezel band. |
 | `thickness` | `number` | `24` | Virtual glass slab depth. |
 | `ior` | `number` | `1.5` | Index of refraction. |
-| `chromaticAberration` | `number` | `0.3` | Per-channel dispersion amount from `0` to `1`. |
+| `chromaticAberration` | `number` | `0.18` | Per-channel dispersion amount from `0` to `1`. |
 | `lightAngle` | `number` | `-35` | Light direction in degrees. |
 | `edgeHighlight` | `number` | `0.9` | Rim highlight intensity. |
-| `specularStrength` | `number` | `0.42` | Soft bezel sheen intensity. |
+| `specularStrength` | `number` | `0.26` | Bezel reflection intensity. |
+| `dispersionMode` | `'auto' \| 'exact'` | `'auto'` | Skip RGB splitting under heavy frost, or retain exact RGB sampling. Low quality always uses one sample. |
+| `respectPreferences` | `boolean` | `true` | Respect reduced motion and reduced transparency in the glass engine. |
 | `fresnelPower` | `number` | `2.2` | Rim lobe sharpness. |
 | `hoverLighting` | `boolean` | `false` | Brightens the rim on hover. |
 | `cursorTracking` | `boolean` | `false` | Lets the rim light follow the pointer. |
@@ -176,6 +182,24 @@ const config = {
 | `backdropLuminance` | `number` | unset | Optional `0..1` luminance hint for custom backdrop sampling. |
 
 ## Animation API
+
+### Configuration updates and cleanup
+
+`updateConfig(patch)` merges explicit overrides; pass `undefined` to remove one. `setConfig(config)` replaces the declaration, resetting omitted values to the selected material/defaults. React uses replacement semantics automatically. `getConfig()` returns the resolved configuration.
+
+```ts
+glass.updateConfig({ blur: 8 });
+glass.updateConfig({ material: 'regular' }); // explicit blur remains 8
+glass.updateConfig({ blur: undefined });    // returns to regular's blur
+glass.setConfig({ material: 'clear' });     // reset all overrides
+glass.destroy();                           // release resources when the view leaves
+```
+
+Vanilla content is wrapped in `.ql-content` for correct stacking and its original nodes/listeners are restored on destroy. Account for that wrapper if your layout relies on direct children. Reduced motion and reduced transparency are respected by default in the engine and React wrapper; independently constructed animation utilities still need application-level preference handling.
+
+Defaults now use less dispersion (`0.18`) and reflection (`0.26`). Automatic dispersion skips RGB splitting under heavy frost; use `dispersionMode: 'exact'` to preserve deliberate chromatic styling. Low quality and negligible dispersion still use one sample. These materials are independent web approximations, not native Apple presets or pixel-identical output.
+
+## Animation utilities
 
 QuickLiquid exports the glass engine plus reusable animation primitives from `quick-liquid`.
 
@@ -252,11 +276,14 @@ if (nav && tabs.length) {
 | Import | Exports |
 | --- | --- |
 | `quick-liquid` | `LiquidGlassEngine`, `DEFAULT_CONFIG`, `MATERIAL_PRESETS`, springs, gestures, transitions, morphing, groups, tab bar utilities |
+| `quick-liquid/core` | `LiquidGlassEngine`, config types, `DEFAULT_CONFIG`, `MATERIAL_PRESETS` without animation utilities |
 | `quick-liquid/react` | `LiquidGlass`, `LiquidGlassProps`, `LiquidGlassRef` |
+
+The entry points share one engine/cache within each module format. ESM and CommonJS remain separate graphs if mixed in one process.
 
 ## Browser Notes
 
-The full refraction path depends on `backdrop-filter: url(...)`, which currently works in Chromium-based browsers. Safari and Firefox receive a CSS fallback with blur, saturation, tint, lighting, and shadow.
+The full refraction path depends on rendered `backdrop-filter: url(...)` support and is validated locally in Chromium. The automatic computed-style probe cannot prove pixel rendering. Use `refractionMode: 'css'` for an explicit fallback with blur, saturation, tint, lighting and shadow; validate actual rendering on your target Safari/Firefox versions.
 
 For Chromium refraction, avoid these styles on the glass host element because they can prevent the browser from resolving the live backdrop:
 
@@ -275,16 +302,20 @@ QuickLiquid is designed around a cache-first rendering path:
 - A 1-D lookup table reduces the physical refraction calculation.
 - Only the rounded bezel band is iterated when generating displacement maps.
 - Same-geometry elements share a refcounted map.
-- `refractionStrength` and chromatic aberration updates only change SVG filter scale attributes when geometry is unchanged.
+- `refractionStrength` and chromatic aberration updates only change SVG filter scale attributes when geometry and the dispersion mode gate are unchanged.
+- Neutral map padding and recentered encoding keep the flat center stationary.
+- Rim/reflection gradients are baked once and rotated during pointer motion; lighting stops at rest.
 - `quality: 'medium'` or `quality: 'low'` can be used for dense lists or background UI.
 
-You can read live engine metrics:
+The engine also exposes live metrics for profiling representative hardware:
 
 ```ts
 const metrics = glass.getPerformanceMetrics();
 
 console.log(metrics.mapGenMs, metrics.mapPixelsComputed);
 ```
+
+`avgFrameTime` is lighting callback CPU time, not FPS. `mapEncodeMs` is asynchronous encoding latency, and `displacementTaps` counts samples rather than total GPU passes. Measure the whole page on representative hardware before making frame-rate or battery claims. See `docs/GLASS_INTEGRATION.md` and `docs/GLASS_VALIDATION.md` in the repository for the upgrade guide and measured results.
 
 ## Documentation
 
