@@ -9,9 +9,9 @@
 > cutting the dominant per-frame work by ~1.5× (clear glass) to ~4× (frosted
 > glass), and cutting the light-tracking animation cost to ~zero.
 >
-> Every claim here is falsifiable in the compare app (`compare/`): base engine
-> (v7) and optimized engine (v8) render side-by-side or under a wipe divider
-> from the same config.
+> The implementation is validated with focused optics tests and representative
+> browser measurements; benchmark tooling is intentionally kept out of the
+> published package repository.
 
 ---
 
@@ -388,18 +388,13 @@ in both engines and unchanged.
   feImage decode is already ~free after §6.
 - **WebGL snapshot mode** for Safari/Firefox refraction parity: sound, but it
   changes the integration contract (the host must provide the backdrop as a
-  texture — arbitrary DOM cannot be sampled). Tracked as a roadmap item, not a
-  perf item.
+  texture — arbitrary DOM cannot be sampled). Kept outside the default browser
+  path rather than adding a second rendering contract.
 
 ## 9. Verification protocol
 
-`npm run dev:compare` → compare app:
+For browser validation:
 
-1. **Parity**: wipe mode, same profile both sides — inspect rim, fringe,
-   frost, edge (§3 fixes mean v8 should look *cleaner* at frosted edges).
-2. **Gating honesty**: `clear` preset must keep visible CA; drag blur up and
-   confirm the fringe disappears into the frost *before* the gate trips
-   (badge shows gate state).
-3. **Throughput**: stress grid ×8, scene motion on, solo Base vs solo Opt —
-   compare FPS / p95 frame time on the same machine.
-4. Metrics readouts: displacement taps, region px, map px, gen ms per engine.
+1. Inspect the refractive center, rim, fringe, and frost on representative hardware.
+2. Confirm `clear` retains visible chromatic edges and heavier frost softens them.
+3. Measure whole-page frame time before making performance claims.

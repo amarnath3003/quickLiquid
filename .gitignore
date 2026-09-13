@@ -2,6 +2,10 @@
 node_modules/
 jspm_packages/
 
+# Agent and local workspace metadata
+.codex/
+.agents/
+
 # Build and Bundler outputs
 dist/
 build/
@@ -29,8 +33,11 @@ lerna-debug.log*
 chrome-debug*.log
 .tmp-chrome*/
 
-# Reel frame captures (regenerate with demo/tools/reel-shot.cjs)
+# Reel frame captures
 .reel/
+
+# Local package archives
+*.tgz
 
 # Generated visual QA captures and throwaway launch previews
 landing-mobile*.png

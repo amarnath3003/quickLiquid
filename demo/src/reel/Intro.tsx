@@ -17,7 +17,7 @@
  *   9.4s  a light bar rakes across; all five surfaces refract it at once
  *  10.8s  the end composition breathes and holds
  *
- * ── Chromium rules this file obeys (see VISUAL_QA_HANDOFF.md §3) ────────────
+ * ── Chromium rendering rules for the live backdrop ─────────────────────────
  * `opacity`, `filter`, `mask`, `mix-blend-mode` and `isolation` NEVER appear on
  * a glass host or on any of its ancestors — each creates a backdrop root and
  * silently kills the refraction while leaving the blur intact, so the failure

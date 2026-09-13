@@ -164,4 +164,4 @@ invalidated by pointer motion.
 `CSS.supports`, which lies) detects support; unsupported engines fall back to
 blur + saturate + lighting layers (`refractionMode: 'auto'`). Two Chromium
 pitfalls that silently disable only the url() part are documented in
-`VISUAL_QA_HANDOFF.md` §3 — read it before touching layer stacking.
+Keep the glass host free of clipping and filter rules that prevent Chromium from resolving the live backdrop.

@@ -19,8 +19,6 @@
   &middot;
   <a href="packages/quick-liquid/PHYSICS.md"><b>Physics notes</b></a>
   &middot;
-  <a href="ROADMAP.md"><b>Roadmap</b></a>
-  &middot;
   <a href="https://www.npmjs.com/package/quick-liquid"><b>npm</b></a>
 </p>
 
@@ -37,7 +35,7 @@
     Every surface in that clip is a live <code>LiquidGlassEngine</code>, and the wordmark is page content sitting
     <i>behind</i> the glass &mdash; those letters are being displaced by a real SVG map, not by a video effect.<br />
     Source: <a href="demo/src/reel/Intro.tsx"><code>demo/src/reel/Intro.tsx</code></a>
-    &middot; re-render with <code>npm run reel:gif</code>
+    &middot; source is in <code>demo/src/reel/Intro.tsx</code>
   </sub>
 </p>
 
@@ -283,7 +281,7 @@ For Chromium refraction, avoid these styles on the glass host element because th
 - `mask`
 - explicit stacking changes on the internal lens layer
 
-See [VISUAL_QA_HANDOFF.md](VISUAL_QA_HANDOFF.md) for the visual QA notes and known stacking pitfalls.
+The public playground demonstrates the supported Chromium refraction path and the CSS fallback remains available through `refractionMode: 'css'`.
 
 ## Performance Model
 
@@ -318,7 +316,6 @@ Useful workspace scripts:
 | --- | --- |
 | `npm run dev` | Starts the demo workspace. |
 | `npm run dev:landing` | Starts the landing/docs site. |
-| `npm run dev:compare` | Starts the comparison app. |
 | `npm run typecheck` | Type-checks `packages/quick-liquid`. |
 | `npm run build:lib` | Builds the library package with tsup. |
 | `npm run build` | Builds the library, demo, and landing site. |
@@ -337,24 +334,14 @@ with no chrome at all.
 
 | Command (from `demo/`) | What it does |
 | --- | --- |
-| `npm run reel:gif -- <out.gif> [width] [fps] [colors] [tolerance]` | Re-renders the README GIF. Defaults to 720px / 14fps / 128 colours; the shipped file is `560 12 224 6`. |
-| `npm run reel:shot -- <dir> <ms,ms,...>` | Grabs exact frames as PNGs, or `all` for a 60fps sequence. |
-| `npm run reel:fitcheck` | Toggles every `feDisplacementMap` off and on at each export scale and prints the mean pixel difference, proving refraction is still live and not silently lost to a backdrop root. |
-| `npm run reel:gifcheck -- <in.gif> <dir> <frame,frame>` | Decodes frames back out of an encoded GIF, so the delta encoding can be inspected instead of trusted. |
-
-The GIF export is lossy in two ways worth knowing about: GIF allows 256 colours
-per frame, which contours the smooth colour field, and the encoder leaves up to
-`tolerance` of per-channel error on any pixel it carries over between frames.
-Both are tuned for a file small enough to sit in a README. The reel itself, in a
-browser, has neither limitation.
+The shipped GIF is a lightweight preview; the reel itself remains a live React
+composition in the browser.
 
 ## Documentation
 
 - [Package README](packages/quick-liquid/README.md)
 - [Physics notes](packages/quick-liquid/PHYSICS.md)
 - [Optimization notes](packages/quick-liquid/OPTIMIZATION.md)
-- [Visual QA handoff](VISUAL_QA_HANDOFF.md)
-- [Roadmap](ROADMAP.md)
 
 ## License
 

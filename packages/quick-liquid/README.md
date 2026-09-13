@@ -19,8 +19,6 @@
   &middot;
   <a href="https://github.com/amarnath3003/quickLiquid/blob/main/packages/quick-liquid/PHYSICS.md"><b>Physics notes</b></a>
   &middot;
-  <a href="https://github.com/amarnath3003/quickLiquid/blob/main/ROADMAP.md"><b>Roadmap</b></a>
-  &middot;
   <a href="https://github.com/amarnath3003/quickLiquid"><b>GitHub</b></a>
 </p>
 
@@ -293,7 +291,7 @@ For Chromium refraction, avoid these styles on the glass host element because th
 - `mask`
 - explicit stacking changes on the internal lens layer
 
-See the [visual QA notes](https://github.com/amarnath3003/quickLiquid/blob/main/VISUAL_QA_HANDOFF.md) for known stacking pitfalls.
+The public playground demonstrates the supported Chromium refraction path, while `refractionMode: 'css'` provides an explicit fallback.
 
 ## Performance Model
 
@@ -315,15 +313,13 @@ const metrics = glass.getPerformanceMetrics();
 console.log(metrics.mapGenMs, metrics.mapPixelsComputed);
 ```
 
-`avgFrameTime` is lighting callback CPU time, not FPS. `mapEncodeMs` is asynchronous encoding latency, and `displacementTaps` counts samples rather than total GPU passes. Measure the whole page on representative hardware before making frame-rate or battery claims. See `docs/GLASS_INTEGRATION.md` and `docs/GLASS_VALIDATION.md` in the repository for the upgrade guide and measured results.
+`avgFrameTime` is lighting callback CPU time, not FPS. `mapEncodeMs` is asynchronous encoding latency, and `displacementTaps` counts samples rather than total GPU passes. Measure the whole page on representative hardware before making frame-rate or battery claims.
 
 ## Documentation
 
 - [GitHub repository](https://github.com/amarnath3003/quickLiquid)
 - [Physics notes](https://github.com/amarnath3003/quickLiquid/blob/main/packages/quick-liquid/PHYSICS.md)
 - [Optimization notes](https://github.com/amarnath3003/quickLiquid/blob/main/packages/quick-liquid/OPTIMIZATION.md)
-- [Visual QA handoff](https://github.com/amarnath3003/quickLiquid/blob/main/VISUAL_QA_HANDOFF.md)
-- [Roadmap](https://github.com/amarnath3003/quickLiquid/blob/main/ROADMAP.md)
 
 ## License
 
