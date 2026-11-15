@@ -23,20 +23,17 @@
 </p>
 
 <p align="center">
-  <img
-    src="assets/quick-liquid-reel.gif"
-    alt="A droplet of glass falls onto a seam of light; five droplets fuse into a single lens; the lens crosses the frame refracting the QuickLiquid wordmark as it passes"
-    width="720"
-  />
+  <a href="assets/quick-liquid-live-intro.mp4">
+    <img
+      src="assets/quick-liquid-live-intro.webp"
+      alt="A live glass lens magnifies the QuickLiquid wordmark as the camera zooms into the blue and violet scene"
+      width="760"
+    />
+  </a>
 </p>
 
 <p align="center">
-  <sub>
-    Every surface in that clip is a live <code>LiquidGlassEngine</code>, and the wordmark is page content sitting
-    <i>behind</i> the glass &mdash; those letters are being displaced by a real SVG map, not by a video effect.<br />
-    Source: <a href="demo/src/reel/Intro.tsx"><code>demo/src/reel/Intro.tsx</code></a>
-    &middot; source is in <code>demo/src/reel/Intro.tsx</code>
-  </sub>
+  <a href="assets/quick-liquid-live-intro.mp4"><b>Full intro (MP4)</b></a>
 </p>
 
 ---
