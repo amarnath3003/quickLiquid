@@ -164,7 +164,6 @@ body {
 .glass-nav .nav-brand { font-weight: 600; font-size: 0.95rem; }
 
 .glass-tab-bar > .ql-content,
-.merge-blob > .ql-content,
 .glass-btn > .ql-content {
   display: inherit;
   align-items: inherit;
@@ -864,6 +863,9 @@ body {
 }
 
 .merge-blob {
+  position: relative;
+  z-index: 1;
+  border-radius: 50%;
   width: 80px;
   height: 80px;
   display: flex;

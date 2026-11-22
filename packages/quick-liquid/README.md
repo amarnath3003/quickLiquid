@@ -174,7 +174,8 @@ const config = {
 | `parallax` | `boolean` | `false` | Adds subtle pointer parallax. |
 | `elevation` | `number` | `1` | Shadow or ambient glow multiplier. |
 | `borderRadius` | `number` | `28` | Glass corner radius in CSS pixels. |
-| `quality` | `'high' \| 'medium' \| 'low'` | `'high'` | Displacement map resolution tier. |
+| `quality` | `'low' \| 'medium' \| 'high' \| 'ultra' \| 'extreme'` | `'high'` | Map density (samples per CSS pixel) and longest-side cap are 0.5×/128, 0.8×/384, 1×/1024, 2×/2048 and 3×/3072 respectively. Higher tiers spend more memory and preparation time on curved edges. Extreme retains RGB splitting at any positive dispersion. |
+| `magnification` | `number` | `1` | Center zoom from 1× to 3×, tapered into the refractive shoulder. Requires SVG refraction. |
 | `refractionMode` | `'auto' \| 'svg' \| 'css'` | `'auto'` | Choose full SVG refraction or CSS-only fallback. |
 | `appearance` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Adapts tint, lighting, and shadow for light or dark backdrops. |
 | `backdropLuminance` | `number` | unset | Optional `0..1` luminance hint for custom backdrop sampling. |
@@ -195,7 +196,7 @@ glass.destroy();                           // release resources when the view le
 
 Vanilla content is wrapped in `.ql-content` for correct stacking and its original nodes/listeners are restored on destroy. Account for that wrapper if your layout relies on direct children. Reduced motion and reduced transparency are respected by default in the engine and React wrapper; independently constructed animation utilities still need application-level preference handling.
 
-Defaults now use less dispersion (`0.18`) and reflection (`0.26`). Automatic dispersion skips RGB splitting under heavy frost; use `dispersionMode: 'exact'` to preserve deliberate chromatic styling. Low quality and negligible dispersion still use one sample. These materials are independent web approximations, not native Apple presets or pixel-identical output.
+Defaults now use less dispersion (`0.18`) and reflection (`0.26`). Automatic dispersion skips RGB splitting under heavy frost; use `dispersionMode: 'exact'` to preserve deliberate chromatic styling. Low always uses one sample. Extreme retains RGB for any positive dispersion. These materials are independent web approximations, not native Apple presets or pixel-identical output.
 
 ## Animation utilities
 
@@ -324,3 +325,5 @@ console.log(metrics.mapGenMs, metrics.mapPixelsComputed);
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+For scenes your React app draws itself, pass a lens-aligned copy of the scenery as the optional `opticalSource` prop on `LiquidGlass`. The engine filters that scene directly, including in browsers without SVG backdrop-filter support. Size the source to the original scene and offset it as the lens moves.

@@ -1,26 +1,18 @@
-import { Nav } from './sections/Nav';
+import { SiteShell } from './components/SiteShell';
 import { Hero } from './sections/Hero';
+// import { GlassMarquee } from './components/Marquee';
 import { Features } from './sections/Features';
-import { Liquid } from './sections/Liquid';
 import { Install } from './sections/Install';
-import { Footer } from './sections/Footer';
-import { Goo } from './components/Goo';
-import { GlassMarquee } from './components/Marquee';
 
 export default function App() {
   return (
-    <>
-      <Goo />
-      <div className="grain" aria-hidden />
-      <Nav />
-      <main>
+    <SiteShell page="home" skipTo="#top">
+      <main id="top" className="glass-home">
         <Hero />
-        <GlassMarquee />
+        {/* <GlassMarquee /> */}
         <Features />
-        <Liquid />
         <Install />
       </main>
-      <Footer />
-    </>
+    </SiteShell>
   );
 }

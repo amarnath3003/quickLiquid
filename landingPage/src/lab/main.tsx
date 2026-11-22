@@ -1,117 +1,565 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { CardGlass } from '../components/CardGlass';
+import {
+  StrictMode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { createRoot } from 'react-dom/client';
-import { LiquidGlassEngine, DEFAULT_CONFIG, MATERIAL_PRESETS, type LiquidGlassConfig } from 'quick-liquid';
-import { LiquidGlass } from 'quick-liquid/react';
+import {
+  DEFAULT_CONFIG,
+  LiquidPopover,
+  MATERIAL_PRESETS,
+  QUALITY_PRESETS,
+  type GlassQuality,
+  type LiquidGlassConfig,
+} from 'quick-liquid';
+import {
+  LiquidGlass,
+  LiquidGlassButton,
+  LiquidSegmented,
+  LiquidSwitcher,
+  LiquidToggle,
+  useLiquidInteractive,
+} from 'quick-liquid/react';
+import { CodeBlock } from '../components/CodeBlock';
+import { GlassRange } from '../components/GlassControls';
+import { LightField, SiteShell } from '../components/SiteShell';
+import { AnimationStudio } from './AnimationStudio';
 import '@fontsource-variable/outfit';
 import '@fontsource-variable/jetbrains-mono';
+import '../site-shell.css';
 import './material-lab.css';
 
-type Scene = 'spectrum' | 'video' | 'photo' | 'type' | 'lines' | 'contrast';
-type Shape = 'card' | 'pill' | 'circle';
+const SCENES = [
+  { id: 'spectrum', label: 'Spectrum' },
+  { id: 'video', label: 'Video' },
+  { id: 'photo', label: 'Photo' },
+  { id: 'type', label: 'Type' },
+  { id: 'lines', label: 'Fine lines' },
+  { id: 'contrast', label: 'Contrast' },
+] as const;
 
-const SCENES: { id: Scene; label: string; note: string }[] = [
-  { id: 'spectrum', label: 'Color', note: 'Broad color boundaries reveal bending and dispersion.' },
-  { id: 'video', label: 'Video', note: 'Stock pool footage tests refraction while highlights and reflections move.' },
-  { id: 'photo', label: 'Photo', note: 'Architecture, water, foliage, and hard edges test natural detail.' },
-  { id: 'type', label: 'Typography', note: 'Large and small text expose blur, doubling, and center drift.' },
-  { id: 'lines', label: 'Fine lines', note: 'A calibration grid makes edge displacement easy to inspect.' },
-  { id: 'contrast', label: 'Contrast', note: 'Black, white, and color bars stress tint and rim visibility.' },
-];
+type Scene = (typeof SCENES)[number]['id'];
+const SCENE_OPTIONS = SCENES.map(item => ({ value: item.id, label: item.label }));
+
+const QUALITY_TIERS = Object.keys(QUALITY_PRESETS) as GlassQuality[];
+const formatQualityTier = (tier: GlassQuality) => tier[0].toUpperCase() + tier.slice(1);
+
+function QualitySelect({ value, onChange }: { value: GlassQuality; onChange: (next: GlassQuality) => void }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
+  const popoverRef = useRef<LiquidPopover | null>(null);
+  const closingRef = useRef(false);
+  const focusOnOpenRef = useRef(false);
+  const triggerInteractiveRef = useLiquidInteractive<HTMLButtonElement>({
+    pressScale: 0.96,
+    pressSquish: 0.03,
+    hoverLift: 1.5,
+    hoverScale: 1.015,
+    ripple: true,
+  });
+
+  useEffect(() => {
+    popoverRef.current = new LiquidPopover({ origin: 'top right' });
+    return () => {
+      popoverRef.current?.destroy();
+      popoverRef.current = null;
+    };
+  }, []);
+
+  const closeMenu = useCallback((restoreFocus = false) => {
+    if (!open || closingRef.current) return;
+    const el = menuRef.current;
+    if (!el || !popoverRef.current) {
+      setOpen(false);
+      if (restoreFocus) triggerInteractiveRef.current?.focus();
+      return;
+    }
+    closingRef.current = true;
+    void popoverRef.current.close(el).then(() => {
+      closingRef.current = false;
+      setOpen(false);
+      if (restoreFocus) triggerInteractiveRef.current?.focus();
+    });
+  }, [open, triggerInteractiveRef]);
+
+  useEffect(() => {
+    if (!open || !menuRef.current) return;
+    popoverRef.current?.open(menuRef.current);
+
+    if (focusOnOpenRef.current) {
+      focusOnOpenRef.current = false;
+      const selectedBtn = menuRef.current.querySelector<HTMLButtonElement>('[aria-selected="true"]')
+        ?? menuRef.current.querySelector<HTMLButtonElement>('[role="option"]');
+      selectedBtn?.focus();
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      if (root.current && !root.current.contains(event.target as Node)) closeMenu();
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeMenu(true);
+    }
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, closeMenu]);
+
+  function select(tier: GlassQuality) {
+    onChange(tier);
+    closeMenu(true);
+  }
+
+  function onTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) {
+        focusOnOpenRef.current = true;
+        closingRef.current = false;
+        setOpen(true);
+      } else {
+        const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []);
+        const idx = QUALITY_TIERS.indexOf(value);
+        const nextIdx = event.key === 'ArrowDown'
+          ? Math.min(items.length - 1, idx + 1)
+          : Math.max(0, idx - 1);
+        items[nextIdx]?.focus();
+      }
+    }
+  }
+
+  function onMenuKeyDown(event: ReactKeyboardEvent<HTMLUListElement>) {
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'));
+    if (!items.length) return;
+    const currentIdx = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      items[(currentIdx + 1) % items.length]?.focus();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(currentIdx - 1 + items.length) % items.length]?.focus();
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (event.key === 'Tab') {
+      closeMenu();
+    }
+  }
+
+  const preset = QUALITY_PRESETS[value];
+
+  return (
+    <div className="lab-select" ref={root} data-open={open}>
+      <button
+        ref={triggerInteractiveRef}
+        id="glass-quality"
+        type="button"
+        className="glass-button lab-select__trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-labelledby="glass-quality-label glass-quality"
+        onClick={() => {
+          if (open) closeMenu();
+          else {
+            closingRef.current = false;
+            setOpen(true);
+          }
+        }}
+        onKeyDown={onTriggerKeyDown}
+      >
+        <span>{formatQualityTier(value)}</span>
+        <span className="lab-select__spec">{preset.density}×</span>
+        <svg className="lab-select__chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4.2 6.2 8 10l3.8-3.8" />
+        </svg>
+      </button>
+      {open && (
+        <ul
+          ref={menuRef}
+          className="lab-select__menu glass-pane"
+          role="listbox"
+          aria-labelledby="glass-quality-label"
+          onKeyDown={onMenuKeyDown}
+        >
+          {QUALITY_TIERS.map(tier => {
+            const info = QUALITY_PRESETS[tier];
+            return (
+              <li key={tier} role="presentation">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={tier === value}
+                  className="lab-select__option"
+                  onClick={() => select(tier)}
+                >
+                  <span className="lab-select__option-head">
+                    <strong>{formatQualityTier(tier)}</strong>
+                    <span>{info.density}×</span>
+                  </span>
+                  <small>{info.description}</small>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const SHAPES = ['card', 'pill', 'circle'] as const;
+const SHAPE_OPTIONS = SHAPES.map(value => ({ value, label: value }));
+
+const MATERIALS = ['clear', 'thin', 'regular', 'thick'] as const;
+const MATERIAL_OPTIONS = MATERIALS.map(value => ({ value, label: value }));
+
+const THEME_OPTIONS = [
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+] as const;
+
+const SWATCHES = [
+  { material: 'clear', description: 'Strong edge refraction with a clear view through the center.' },
+  { material: 'regular', description: 'Softens the scene behind controls and readable content.' },
+  { material: 'thick', description: 'Blurs more of the background for greater separation.' },
+] as const;
+
+const SLIDERS = [
+  ['blur', 'Frost', 0, 30, 0.5, ' px'],
+  ['refractionStrength', 'Refraction', 0, 50, 1, ' px'],
+  ['chromaticAberration', 'Dispersion', 0, 1, 0.01, ''],
+  ['bezelWidth', 'Bezel', 8, 60, 1, ' px'],
+  ['magnification', 'Magnification', 1, 3, 0.1, '×'],
+  ['lightAngle', 'Light direction', -180, 180, 1, '°'],
+  ['specularStrength', 'Surface reflection', 0, 1, 0.01, ''],
+] as const;
+
+const DIRECTIONS: Record<string, [number, number]> = {
+  ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16],
+};
+
+type Shape = (typeof SHAPES)[number];
+type Material = (typeof MATERIALS)[number];
 
 function Lab() {
-  const [dark, setDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
+  const [dark, setDark] = useState(true);
   const [scene, setScene] = useState<Scene>('spectrum');
   const [shape, setShape] = useState<Shape>('card');
-  const [material, setMaterial] = useState('clear');
+  const [material, setMaterial] = useState<Material>('clear');
   const [overrides, setOverrides] = useState<Partial<LiquidGlassConfig>>({});
+  const [quality, setQuality] = useState<GlassQuality>(DEFAULT_CONFIG.quality);
   const [motion, setMotion] = useState(false);
-  const [copied, setCopied] = useState(false);
   const host = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
-  const engine = useRef<LiquidGlassEngine | null>(null);
+  const mirror = useRef<HTMLCanvasElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const offset = useRef({ x: 0, y: 0 });
   const pointer = useRef<{ id: number; x: number; y: number; ox: number; oy: number } | null>(null);
-  const lensRadius = shape === 'card' ? 44 : 999;
-  const effective = { ...DEFAULT_CONFIG, ...MATERIAL_PRESETS[material], ...overrides };
-  const config: Partial<LiquidGlassConfig> = {
-    ...effective,
-    material: material as LiquidGlassConfig['material'], borderRadius: lensRadius,
-    appearance: dark ? 'dark' : 'light', cursorTracking: true,
-    ...overrides, refractionMode: 'auto',
-  };
-  const configStr = JSON.stringify(config);
+  const lensRadius = shape === 'card' ? 48 : 999;
+  const declaration = useMemo(() => ({
+    quality,
+    ...(material === 'clear' ? { blur: 0.5, magnification: 1.2, saturation: 1.13 } : {}),
+    specularStrength: 0.7,
+    ...overrides,
+    material,
+    borderRadius: lensRadius,
+    appearance: dark ? 'dark' as const : 'light' as const,
+  }), [quality, material, lensRadius, dark, overrides]);
+  const config = { ...DEFAULT_CONFIG, ...MATERIAL_PRESETS[material], ...declaration };
+
+  const move = useCallback((x: number, y: number) => {
+    if (!host.current || !stage.current) return;
+    const maxX = Math.max(0, (stage.current.clientWidth - host.current.offsetWidth) / 2 - 10);
+    const maxY = Math.max(0, (stage.current.clientHeight - host.current.offsetHeight) / 2 - 10);
+    offset.current = {
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    };
+    const style = host.current.style;
+    style.setProperty('--scene-width', stage.current.clientWidth + 'px');
+    style.setProperty('--scene-height', stage.current.clientHeight + 'px');
+    style.setProperty('--scene-x', -offset.current.x + 'px');
+    style.setProperty('--scene-y', -offset.current.y + 'px');
+    host.current.style.translate = `${offset.current.x}px ${offset.current.y}px`;
+  }, []);
 
   useEffect(() => {
-    if (!host.current) return;
-    const e = new LiquidGlassEngine(host.current, JSON.parse(configStr));
-    engine.current = e;
-    return () => { e.destroy(); engine.current = null; };
-  }, []);
-  useEffect(() => {
-    const e = engine.current;
-    if (e) e.setConfig(JSON.parse(configStr));
-  }, [configStr]);
-  useEffect(() => setCopied(false), [configStr]);
+    const element = host.current;
+    const viewport = stage.current;
+    if (!element || !viewport) return;
+    const observer = new ResizeObserver(() => move(offset.current.x, offset.current.y));
+    observer.observe(viewport);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [move]);
+
   useEffect(() => {
     const media = video.current;
-    if (!media) return;
-    if (scene === 'video' && motion && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      void media.play().catch(() => setMotion(false));
-    } else media.pause();
+    if (!media || scene !== 'video' || !motion) return;
+
+    let active = true;
+    void media.play().catch(() => {
+      if (active) setMotion(false);
+    });
+    return () => {
+      active = false;
+      media.pause();
+    };
   }, [scene, motion]);
 
-  const move = (x: number, y: number) => {
-    if (!host.current || !stage.current) return;
-    const maxX = Math.max(0, (stage.current.clientWidth - host.current.offsetWidth) / 2 - 12);
-    const maxY = Math.max(0, (stage.current.clientHeight - host.current.offsetHeight) / 2 - 12);
-    offset.current = { x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) };
-    host.current.style.translate = `${offset.current.x}px ${offset.current.y}px`;
-  };
-  const reset = () => { setOverrides({}); setMaterial('clear'); setShape('card'); move(0, 0); };
-  const snippet = `config={{\n  material: '${material}',\n  borderRadius: ${lensRadius},\n${Object.entries(overrides).map(([k,v]) => `  ${k}: ${JSON.stringify(v)},\n`).join('')}  appearance: '${dark ? 'dark' : 'light'}',\n}}`;
-  const sceneNote = SCENES.find(item => item.id === scene)!.note;
+  useEffect(() => {
+    const media = video.current;
+    const canvas = mirror.current;
+    if (!media || !canvas || scene !== 'video') return;
+    const ctx = canvas.getContext('2d');
+    let frame = 0;
+    const paint = () => {
+      if (!ctx || !media.videoWidth || media.readyState < 2 || (media.paused && !media.played.length)) return;
+      if (canvas.width !== media.videoWidth || canvas.height !== media.videoHeight) {
+        canvas.width = media.videoWidth;
+        canvas.height = media.videoHeight;
+      }
+      ctx.drawImage(media, 0, 0);
+    };
+    const tick = () => { paint(); if (!media.paused) frame = requestAnimationFrame(tick); };
+    const start = () => { cancelAnimationFrame(frame); tick(); };
+    start();
+    media.addEventListener('loadeddata', paint);
+    media.addEventListener('seeked', paint);
+    media.addEventListener('playing', start);
+    return () => {
+      cancelAnimationFrame(frame);
+      media.removeEventListener('loadeddata', paint);
+      media.removeEventListener('seeked', paint);
+      media.removeEventListener('playing', start);
+    };
+  }, [scene]);
 
-  return <div className="lab" data-theme={dark ? 'dark' : 'light'}>
-    <nav className="lab-nav"><a href="/">quickLiquid<span> / playground</span></a><div><a href="/docs/">Docs</a><button onClick={() => setDark(!dark)}>{dark ? 'Light' : 'Dark'} appearance</button></div></nav>
-    <main>
-      <header className="lab-intro"><p>One playground. Real optics.</p><h1>See what the lens sees.</h1><p>Move one live lens across video, photography, type, color, and calibration scenes. Then copy the result.</p></header>
-      <div className="lab-workbench">
-        <section className="lab-preview" aria-label="Material preview">
-          <div className="lab-toolbar"><div role="group" aria-label="Backdrop">{SCENES.map(item => <button key={item.id} aria-pressed={scene === item.id} onClick={() => { setScene(item.id); if (item.id === 'video') setMotion(true); }}>{item.label}</button>)}</div><button aria-pressed={motion} onClick={() => setMotion(!motion)}>{motion ? 'Pause scene' : scene === 'video' ? 'Play video' : 'Move scene'}</button></div>
-          <p className="lab-scene-meta" aria-live="polite"><span>{sceneNote}</span>{scene === 'video' && <a href="https://www.pexels.com/video/sunlight-over-building-and-swimming-pool-in-city-11157345/" target="_blank" rel="noreferrer">Video by Atif Dar on Pexels</a>}</p>
-          <div className={`lab-stage lab-stage--${scene}${motion ? ' is-moving' : ''}`} ref={stage}>
-            <div className="lab-scenery" aria-hidden="true"><div className="lab-spectrum"/><video ref={video} className="lab-media" src="/stock-pool.mp4" poster="/stock-pool-poster.jpg" muted loop playsInline preload="metadata"/><img className="lab-photo" src="/playground-coast.webp" alt=""/><div className="lab-lines"><span>1 px</span><span>8 px</span><span>24 px</span></div><div className="lab-contrast"><span>Aa</span><span>Aa</span><i/></div><div className="lab-type"><b>Refraction<br/><span>stays readable.</span></b><div><small>ABCDEFG 0123456789</small><p>Edges should bend. The quiet center should hold every letter in place.</p></div></div><span className="lab-scene-word">liquid</span></div>
-            <div className={`lab-lens lab-lens--${shape}`} ref={host} tabIndex={0} role="group" aria-label="Draggable glass lens. Use arrow keys to move."
-              onPointerDown={e => { if (e.button !== 0) return; pointer.current = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: offset.current.x, oy: offset.current.y }; e.currentTarget.setPointerCapture(e.pointerId); }}
-              onPointerMove={e => { const p = pointer.current; if (p?.id === e.pointerId) move(p.ox + e.clientX - p.x, p.oy + e.clientY - p.y); }}
-              onPointerUp={() => { pointer.current = null; }} onPointerCancel={() => { pointer.current = null; }}
-              onKeyDown={e => { const delta: Record<string, [number, number]> = { ArrowLeft: [-16,0], ArrowRight: [16,0], ArrowUp: [0,-16], ArrowDown: [0,16] }; if (delta[e.key]) { e.preventDefault(); const [x,y] = delta[e.key]; move(offset.current.x + x, offset.current.y + y); } }}>
-              <div className="ql-content"><div className="lab-lens-label"><span className="lab-lens-symbol" aria-hidden="true">↗</span><div><strong>{material.charAt(0).toUpperCase() + material.slice(1)} glass</strong><span>The world comes through.</span></div></div></div>
-            </div>
+  function renderScene(inside: boolean) {
+    return (
+      <div className="lab-scenery" aria-hidden="true">
+        {scene === 'spectrum' && <LightField className="lab-spectrum" />}
+        {scene === 'video' && (inside ? <canvas ref={mirror} className="lab-media lab-video-copy" /> : <video ref={video} className="lab-media" src="/stock-pool.mp4" poster="/stock-pool-poster.jpg" muted loop playsInline preload="auto" />)}
+        {scene === 'photo' && <img className="lab-media" src="/playground-coast.webp" alt="" />}
+        {scene === 'lines' && <div className="lab-lines"><span>1 px</span><span>8 px</span><span>48 px</span></div>}
+        {scene === 'contrast' && <div className="lab-contrast"><span>Aa</span><span>Aa</span><i /></div>}
+        {scene === 'type' && (
+          <div className="lab-type">
+            <b>Refraction<br />stays readable</b>
+            <small>ABCDEFG 0123456789</small>
           </div>
-          <div className="lab-caption"><span>Drag the lens or use arrow keys.</span><button onClick={() => move(0,0)}>Recenter</button></div>
-        </section>
-        <aside className="lab-controls" aria-label="Material controls"><div className="lab-control-title"><h2>Make it yours.</h2><button onClick={reset}>Reset</button></div>
-          <div className="lab-shapes"><span>Lens shape</span><div role="group" aria-label="Lens shape">{(['card','pill','circle'] as const).map(value => <button key={value} aria-pressed={shape === value} onClick={() => { setShape(value); move(0, 0); }}>{value}</button>)}</div></div>
-          <div className="lab-materials" role="group" aria-label="Material">{['clear','thin','regular','thick'].map(m => <button key={m} aria-pressed={material === m} onClick={() => { setMaterial(m); setOverrides({}); }}>{m}</button>)}</div>
-          {([
-            ['blur','Frost',0,30,.5,'px'], ['refractionStrength','Refraction',0,50,1,'px'], ['bezelWidth','Bezel',8,60,1,'px'],
-            ['chromaticAberration','Dispersion',0,1,.01,''], ['lightAngle','Light direction',-180,180,1,'°'], ['specularStrength','Surface reflection',0,1,.01,''],
-          ] as const).map(([key,label,min,max,step,unit]) => <label className="lab-slider" key={key}><span>{label}<output>{Number(effective[key]).toFixed(step < 1 ? 2 : 0)}{unit}</output></span><input type="range" aria-label={label} min={min} max={max} step={step} value={effective[key]} onChange={e => setOverrides(o => ({ ...o, [key]: Number(e.target.value) }))}/></label>)}
-          <label className="lab-check"><input type="checkbox" checked={overrides.dispersionMode === 'exact'} onChange={e => setOverrides(o => ({...o, dispersionMode: e.target.checked ? 'exact' : 'auto'}))}/> Always use exact dispersion</label>
-          <p className="lab-note">Automatic mode skips color splitting under heavy frost. Clear glass retains exact RGB sampling.</p>
-          <div className="lab-export"><div><span>React configuration</span><button onClick={async () => { try { await navigator.clipboard.writeText(snippet); setCopied(true); } catch { setCopied(false); } }}>{copied ? 'Copied' : 'Copy'}</button></div><pre>{snippet}</pre></div>
-        </aside>
+        )}
       </div>
-      <section className="lab-proof"><div><p>Built to be seen, not babysat.</p><h2>One lens. The scenes that expose everything.</h2></div><dl>
-        <div><dt>6</dt><dd>real-world scenes</dd><small>Motion, type, photography, color, contrast, and one-pixel lines.</small></div>
-        <div><dt>4</dt><dd>tuned materials</dd><small>Clear through thick, ready to use and easy to shape.</small></div>
-        <div><dt>0</dt><dd>pre-rendered mockups</dd><small>Every lens on this page is live, draggable, and yours to tune.</small></div>
-      </dl></section>
-      <section className="lab-material-strip" aria-label="Material family">{['clear','regular','thick'].map(m => <div key={m}><div className="lab-swatch"><LiquidGlass config={{material: m as LiquidGlassConfig['material'], appearance: dark ? 'dark' : 'light', borderRadius: 30}}><span>{m}</span></LiquidGlass></div><p>{m === 'clear' ? 'A view through the material.' : m === 'regular' ? 'Separation for everyday controls.' : 'More privacy, more scattering.'}</p></div>)}</section>
-    </main><footer className="lab-footer"><a href="/">Back to quickLiquid</a><p>Independent web optics inspired by Liquid Glass. Browser rendering and performance vary.</p></footer>
-  </div>;
+    );
+  }
+
+  function selectMaterial(next: Material) {
+    setMaterial(next);
+    setOverrides({});
+  }
+
+  function reset() {
+    selectMaterial('clear');
+    setQuality(DEFAULT_CONFIG.quality);
+    setShape('card');
+    setDark(true);
+    move(0, 0);
+  }
+
+  function renderSlider([key, label, min, max, step, unit]: (typeof SLIDERS)[number]) {
+    const value = config[key] ?? 1;
+    return (
+      <GlassRange key={key} label={label} min={min} max={max} step={step} value={value}
+        valueText={`${value.toFixed(step === 0.01 ? 2 : step < 1 ? 1 : 0)}${unit}`}
+        onChange={next => setOverrides(previous => ({ ...previous, [key]: next }))} />
+    );
+  }
+
+  const snippet = `<LiquidGlass config={{
+${Object.entries(declaration).map(([key, value]) => `  ${key}: ${JSON.stringify(value)},\n`).join('')}}}>
+  {/* Your content */}
+</LiquidGlass>`;
+
+  const exactDispersion = quality === 'extreme' || (quality !== 'low' && overrides.dispersionMode === 'exact');
+
+  return (
+    <SiteShell page="playground" skipTo="#workbench">
+      <main className="site-width lab-page" id="workbench">
+        <header className="lab-intro">
+          <h1>Glass playground</h1>
+        </header>
+
+        <div className="lab-workbench glass-pane">
+          <section className="lab-preview" aria-label="Material preview">
+            <div className="lab-toolbar">
+              <LiquidSegmented
+                options={SCENE_OPTIONS}
+                value={scene}
+                onChange={next => {
+                  setScene(next);
+                  setMotion(false);
+                }}
+                glass
+                ariaLabel="Backdrop"
+                className="lab-scenes"
+              />
+              <div className="lab-toolbar__actions">
+                <LiquidGlassButton
+                  className="glass-button"
+                  aria-pressed={motion}
+                  onClick={() => setMotion(current => !current)}
+                >
+                  {motion ? 'Pause' : scene === 'video' ? 'Play video' : 'Move scene'}
+                </LiquidGlassButton>
+              </div>
+            </div>
+
+            <div className={`lab-stage lab-stage--${scene}${motion ? ' is-moving' : ''}`} data-theme={dark ? 'dark' : 'light'} ref={stage}>
+              {renderScene(false)}
+
+              <div className={`lab-lens lab-lens--${shape}`} ref={host} tabIndex={0} role="group"
+                aria-label="Glass lens"
+                onPointerDown={event => {
+                  if (event.button !== 0 || pointer.current) return;
+                  pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, ox: offset.current.x, oy: offset.current.y };
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={event => {
+                  const drag = pointer.current;
+                  if (drag?.id === event.pointerId) move(drag.ox + event.clientX - drag.x, drag.oy + event.clientY - drag.y);
+                }}
+                onLostPointerCapture={event => {
+                  if (pointer.current?.id === event.pointerId) pointer.current = null;
+                }}
+                onKeyDown={event => {
+                  if (!Object.prototype.hasOwnProperty.call(DIRECTIONS, event.key)) return;
+                  const delta = DIRECTIONS[event.key];
+                  event.preventDefault();
+                  move(offset.current.x + delta[0], offset.current.y + delta[1]);
+                }}>
+                <LiquidGlass className="lab-lens__glass" config={declaration}
+                  opticalSource={<div className="lab-source-frame">{renderScene(true)}</div>} />
+              </div>
+            </div>
+
+            {scene === 'video' && (
+              <p className="lab-video-credit">
+                <a href="https://www.pexels.com/video/sunlight-over-building-and-swimming-pool-in-city-11157345/" target="_blank" rel="noreferrer">Video by Atif Dar</a>
+              </p>
+            )}
+
+            <div className="lab-export glass-pane">
+              <CardGlass />
+              <LiquidSwitcher activeKey={material} direction={0}>
+                <CodeBlock key={snippet} code={snippet} lang="tsx" title="React configuration" />
+              </LiquidSwitcher>
+            </div>
+          </section>
+
+          <aside className="lab-controls glass-pane" aria-label="Material controls">
+            <CardGlass />
+            <div className="lab-control-title">
+              <h2>Lens settings</h2>
+              <LiquidGlassButton className="glass-button" onClick={reset}>Reset</LiquidGlassButton>
+            </div>
+
+            <div className="lab-control-row lab-control-row--materials">
+              <span>Material</span>
+              <LiquidSegmented
+                options={MATERIAL_OPTIONS}
+                value={material}
+                onChange={selectMaterial}
+                glass
+                ariaLabel="Material"
+                className="lab-materials"
+              />
+            </div>
+
+            <div className="lab-control-row lab-control-row--quality">
+              <span id="glass-quality-label">Render quality</span>
+              <QualitySelect value={quality} onChange={setQuality} />
+            </div>
+            <div className="lab-sliders">{SLIDERS.slice(0, 3).map(renderSlider)}</div>
+
+            <details className="lab-advanced">
+              <summary>Advanced settings</summary>
+              <div className="lab-control-row">
+                <span>Appearance</span>
+                <LiquidSegmented
+                  options={THEME_OPTIONS}
+                  value={dark ? 'dark' : 'light'}
+                  onChange={next => setDark(next === 'dark')}
+                  glass
+                  ariaLabel="Lens appearance"
+                />
+              </div>
+              <div className="lab-control-row">
+                <span>Shape</span>
+                <LiquidSegmented
+                  options={SHAPE_OPTIONS}
+                  value={shape}
+                  onChange={value => { setShape(value); move(0, 0); }}
+                  glass
+                  ariaLabel="Lens shape"
+                  className="lab-shapes"
+                />
+              </div>
+              <div className="lab-sliders lab-sliders--advanced">{SLIDERS.slice(3).map(renderSlider)}</div>
+              <div className="lab-control-row lab-control-row--toggle">
+                <span>Always use exact dispersion</span>
+                <LiquidToggle
+                  checked={exactDispersion}
+                  disabled={quality === 'low' || quality === 'extreme'}
+                  label="Always use exact dispersion"
+                  onChange={checked => {
+                    setOverrides(previous => ({ ...previous, dispersionMode: checked ? 'exact' : 'auto' }));
+                  }}
+                />
+              </div>
+              <p className="lab-note">Automatic mode skips color splitting when the frost is heavy.</p>
+            </details>
+          </aside>
+        </div>
+
+        <AnimationStudio />
+
+        <section className="lab-family" aria-labelledby="family-title">
+          <div className="lab-family__head">
+            <h2 id="family-title">Compare materials</h2>
+            <LiquidGlassButton className="glass-button" href="/docs/#materials">
+              Preset reference
+            </LiquidGlassButton>
+          </div>
+          <div className="lab-material-strip glass-pane">
+            <CardGlass />
+            {SWATCHES.map(({ material: value, description }) => (
+              <article className="lab-swatch glass-pane" key={value}>
+                <CardGlass />
+                <div className="lab-swatch__scene">
+                  <LightField className="lab-swatch__beam" />
+                  <LiquidGlass className="lab-swatch__lens" config={{ material: value, appearance: 'dark', borderRadius: 28 }}>
+                    <h3>{value}</h3>
+                  </LiquidGlass>
+                </div>
+                <p>{description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+    </SiteShell>
+  );
 }
 
-createRoot(document.getElementById('root')!).render(<React.StrictMode><Lab/></React.StrictMode>);
+createRoot(document.getElementById('root')!).render(<StrictMode><Lab /></StrictMode>);

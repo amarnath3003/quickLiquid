@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, resolveGlassConfig, type LiquidGlassConfig } from './config';
+import { DEFAULT_CONFIG, QUALITY_PRESETS, resolveGlassConfig, type LiquidGlassConfig } from './config';
 import { rasterizeLens, usesDispersion, filterPadding } from './optics';
 export { DEFAULT_CONFIG, MATERIAL_PRESETS, type LiquidGlassConfig } from './config';
 const DARK_TINT = '20, 24, 34';
@@ -33,18 +33,19 @@ function releaseMap(key: string): void {
 }
 function acquireLensMap(
   w: number, h: number, radius: number, bezel: number, thickness: number, ior: number,
-  resCap: number, blur: number,
+  quality: LiquidGlassConfig['quality'], blur: number, magnification: number, strength: number,
 ): Promise<{ map: LensMap; key: string }> {
   // Keep high quality pixel-dense; medium intentionally trades resolution for cost.
-  const rho = Math.min(1, resCap / Math.max(w, h));
+  const { cap, density } = QUALITY_PRESETS[quality];
+  const rho = Math.min(density, cap / Math.max(w, h));
   const mw = Math.max(4, Math.round(w * rho)), mh = Math.max(4, Math.round(h * rho));
   const padding = filterPadding(blur);
-  const key = [w, h, mw, mh, radius, bezel, thickness, ior, padding].join('|');
+  const key = [w, h, mw, mh, radius, bezel, thickness, ior, padding, magnification, magnification > 1 ? strength : 1].join('|');
   let entry = mapCache.get(key);
   if (entry) { entry.refs++; cacheHits++; }
   else {
     const t0 = performance.now();
-    const raster = rasterizeLens({ width: w, height: h, radius, bezel, thickness, ior, mapWidth: mw, mapHeight: mh, padding });
+    const raster = rasterizeLens({ width: w, height: h, radius, bezel, thickness, ior, mapWidth: mw, mapHeight: mh, padding, magnification, strength: magnification > 1 ? strength : 1 });
     const canvas = document.createElement('canvas');
     canvas.width = raster.width; canvas.height = raster.height;
     const ctx = canvas.getContext('2d');
@@ -362,7 +363,10 @@ export class LiquidGlassEngine {
    */
   private updateLensStyle(): void {
     if (!this.lensLayer) return;
-    const bdf = this.lensFilterString();
+    const source = this.el.querySelector<HTMLElement>(':scope > .ql-source');
+    const filter = this.lensFilterString();
+    if (source) source.style.filter = filter;
+    const bdf = source ? 'none' : filter;
     const ref = this.svgEl && !this.reduceTransparency() ? this.id : null;
 
     if (ref !== this.lensFilterRef) {
@@ -411,25 +415,7 @@ export class LiquidGlassEngine {
     this.tintLayer.style.mixBlendMode = cfg.adaptiveTint && !this.reduceTransparency() ? 'overlay' : 'normal';
   }
 
-  /* ─────────────── LAYERS 2+3: CONIC LIGHT RINGS ───────────────
-     The Apple signature: the rim catches light in TWO lobes — at
-     the light angle and its mirror (glass reflects on the near and
-     far bezel). Implemented as conic gradients masked to rings:
-       .ql-rim   — crisp ~1.3px ring, strong lobes
-       .ql-sheen — bezel-band-wide ring, soft lobes + dark flanks   */
-  private ringMask(padPx: number): Partial<CSSStyleDeclaration> {
-    // Ring = border-box minus content-box, via mask-composite: exclude.
-    // Longhands only: the -webkit-mask shorthand aliases `mask` in Blink
-    // and would clobber the composite mode.
-    return {
-      boxSizing: 'border-box',
-      padding: `${padPx}px`,
-      maskImage: 'linear-gradient(#000 0 0), linear-gradient(#000 0 0)',
-      maskClip: 'content-box, border-box',
-      maskComposite: 'exclude',
-    } as Partial<CSSStyleDeclaration>;
-  }
-
+  // Directional highlights fade inward across two feathered contours.
   private conicStops(
     angleDeg: number, power: number,
     peakA: number, baseA: number, darkA: number,
@@ -455,8 +441,15 @@ export class LiquidGlassEngine {
   private sizeLight(): void {
     const diameter = Math.ceil(Math.hypot(this.lastW, this.lastH)) + 4;
     const bezel = Math.min(this.cfg.bezelWidth, this.lastW / 2, this.lastH / 2);
-    if (this.rimLayer) Object.assign(this.rimLayer.style, this.ringMask(1), { overflow: 'hidden' });
-    if (this.sheenLayer) Object.assign(this.sheenLayer.style, this.ringMask(Math.max(2, bezel * 0.45)), { overflow: 'hidden', filter: 'none' });
+    const radius = Math.min(this.cfg.borderRadius, this.lastW / 2, this.lastH / 2);
+    for (const [layer, spread] of [
+      [this.rimLayer, Math.max(0.8, bezel * 0.065)],
+      [this.sheenLayer, Math.max(1.2, bezel * 0.29)],
+    ] as const) {
+      if (!layer || !this.lastW || !this.lastH) continue;
+      const mask = `<svg xmlns="http://www.w3.org/2000/svg" width="${this.lastW}" height="${this.lastH}"><defs><filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${spread}"/></filter></defs><rect width="100%" height="100%" rx="${radius}" fill="none" stroke="white" stroke-width="${spread * 3}" filter="url(#f)"/></svg>`;
+      Object.assign(layer.style, { maskImage: `url("data:image/svg+xml,${encodeURIComponent(mask)}")`, overflow: 'hidden' });
+    }
     for (const disk of [this.rimDisk, this.sheenDisk]) if (disk) {
       Object.assign(disk.style, { position: 'absolute', width: diameter + 'px', height: diameter + 'px', left: '50%', top: '50%' });
     }
@@ -472,7 +465,7 @@ export class LiquidGlassEngine {
     }
     if (this.sheenDisk) {
       const sp = cfg.specularStrength * (0.4 + 0.65 * L);
-      this.sheenDisk.style.background = this.conicStops(0, p, sp * 0.23, 0, sp * 0.16);
+      this.sheenDisk.style.background = this.conicStops(0, p, sp * 0.85, 0, sp * 0.12);
     }
   }
   private updateRings(): void {
@@ -534,6 +527,7 @@ export class LiquidGlassEngine {
     const mode = this.cfg.refractionMode;
     if (mode === 'svg') return true;
     if (mode === 'css') return false;
+    if (this.el.querySelector(':scope > .ql-source')) return true;
     if (LiquidGlassEngine._svgOk === null) {
       LiquidGlassEngine._svgOk = this.detectSVGSupport();
     }
@@ -578,7 +572,7 @@ export class LiquidGlassEngine {
   private channelScales(): { r: number; g: number; b: number; base: number } {
     const M = this.cfg.ior > 1 ? 1 : 0;
     // Full-range encoding ⇒ scale 2·target reproduces `target` px at the rim.
-    const base = 2 * this.cfg.refractionStrength * (M > 0 ? 1 : 0);
+    const base = 2 * (this.cfg.refractionStrength + Math.max(this.lastW, this.lastH) * (1 - 1 / (this.cfg.magnification ?? 1)) / 2) * (M > 0 ? 1 : 0);
     const ca = this.cfg.chromaticAberration;
     return {
       base,
@@ -592,7 +586,7 @@ export class LiquidGlassEngine {
     const buildVersion = ++this.lensBuildVersion;
     const cfg = this.cfg;
 
-    if (!this.shouldUseSVG() || cfg.refractionStrength <= 0 || cfg.ior <= 1 || this.reduceTransparency()) {
+    if (!this.shouldUseSVG() || (cfg.refractionStrength <= 0 && (cfg.magnification ?? 1) === 1) || cfg.ior <= 1 || this.reduceTransparency()) {
       this.teardownFilter();
       this.updateLensStyle();
       return;
@@ -602,10 +596,10 @@ export class LiquidGlassEngine {
     const h = this.el.offsetHeight;
     if (w < 8 || h < 8) return;
 
-    const resCap = cfg.quality === 'low' ? 128 : cfg.quality === 'medium' ? 384 : 1024;
+    const zoom = cfg.magnification ?? 1;
     const radius = Math.min(cfg.borderRadius, Math.min(w, h) / 2);
 
-    const { map, key } = await acquireLensMap(w, h, radius, cfg.bezelWidth, cfg.thickness, cfg.ior, resCap, cfg.blur);
+    const { map, key } = await acquireLensMap(w, h, radius, cfg.bezelWidth, cfg.thickness, cfg.ior, cfg.quality, cfg.blur, zoom, cfg.refractionStrength);
     if (this.destroyed || buildVersion !== this.lensBuildVersion) {
       releaseMap(key); // a newer rebuild superseded us — hand the ref back
       return;
@@ -906,7 +900,7 @@ export class LiquidGlassEngine {
     const changed = (...keys: (keyof LiquidGlassConfig)[]) => keys.some(k => oldCfg[k] !== cfg[k]);
     if (!Object.keys({ ...oldCfg, ...cfg }).some(k => oldCfg[k as keyof LiquidGlassConfig] !== cfg[k as keyof LiquidGlassConfig])) return;
     const graph = (c: LiquidGlassConfig) => usesDispersion(c.refractionStrength, c.chromaticAberration, c.blur, c.quality, c.dispersionMode);
-    const geometryChanged = changed('borderRadius', 'bezelWidth', 'thickness', 'ior', 'quality', 'refractionMode', 'respectPreferences')
+    const geometryChanged = ((cfg.magnification ?? 1) > 1 && changed('refractionStrength')) || changed('magnification', 'borderRadius', 'bezelWidth', 'thickness', 'ior', 'quality', 'refractionMode', 'respectPreferences')
       || (oldCfg.refractionStrength <= 0) !== (cfg.refractionStrength <= 0)
       || filterPadding(oldCfg.blur) !== filterPadding(cfg.blur) || graph(oldCfg) !== graph(cfg);
     if (changed('borderRadius')) this.el.style.borderRadius = cfg.borderRadius + 'px';

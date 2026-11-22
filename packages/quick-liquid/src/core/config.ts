@@ -1,3 +1,12 @@
+export const QUALITY_PRESETS = {
+  low: { cap: 128, density: 0.5, description: 'Smallest map, single-channel refraction.' },
+  medium: { cap: 384, density: 0.8, description: 'Reduced map detail for groups of controls.' },
+  high: { cap: 1024, density: 1, description: 'CSS-pixel detail with automatic dispersion.' },
+  ultra: { cap: 2048, density: 2, description: 'Up to 2× map detail with automatic dispersion.' },
+  extreme: { cap: 3072, density: 3, description: 'Up to 3× map detail with full RGB dispersion.' },
+} as const;
+export type GlassQuality = keyof typeof QUALITY_PRESETS;
+
 export interface LiquidGlassConfig {
   /** Respect system reduced motion and transparency. Default true. */
   respectPreferences?: boolean;
@@ -44,7 +53,9 @@ export interface LiquidGlassConfig {
 
   // Base
   borderRadius: number;
-  quality: 'high' | 'medium' | 'low';
+  quality: GlassQuality;
+  /** Optical zoom through the lens center, from 1 to 3. */
+  magnification?: number;
   refractionMode: 'auto' | 'svg' | 'css';
 
   // Appearance (dark-mode pass)
@@ -102,6 +113,7 @@ export const DEFAULT_CONFIG: LiquidGlassConfig = {
 
   borderRadius: 28,
   quality: 'high',
+  magnification: 1,
   refractionMode: 'auto',
 
   appearance: 'auto',
@@ -131,7 +143,7 @@ export function resolveGlassConfig(input: Partial<LiquidGlassConfig>): LiquidGla
   if (config.distortionStrength !== undefined && config.refractionStrength === undefined) resolved.refractionStrength = config.distortionStrength;
   if (config.dynamicLighting && config.cursorTracking === undefined) resolved.cursorTracking = true;
   const bounds: Partial<Record<keyof LiquidGlassConfig, [number, number]>> = {
-    blur: [0, 80], saturation: [0, 4], tintOpacity: [0, 1], refractionStrength: [0, 150],
+    magnification: [1, 3], blur: [0, 80], saturation: [0, 4], tintOpacity: [0, 1], refractionStrength: [0, 150],
     bezelWidth: [0.5, 256], thickness: [0.1, 256], ior: [1, 3], chromaticAberration: [0, 1],
     edgeHighlight: [0, 1], specularStrength: [0, 1], fresnelPower: [1, 6],
     elevation: [0, 5], noiseOpacity: [0, 1], noiseScale: [0.1, 10], borderRadius: [0, 10000],
@@ -145,6 +157,7 @@ export function resolveGlassConfig(input: Partial<LiquidGlassConfig>): LiquidGla
     (resolved as unknown as Record<string, unknown>)[key] =
       typeof value === 'number' && Number.isFinite(value) ? Math.max(lo, Math.min(hi, value)) : DEFAULT_CONFIG[k];
   }
+  if (!Object.prototype.hasOwnProperty.call(QUALITY_PRESETS, resolved.quality)) resolved.quality = DEFAULT_CONFIG.quality;
   if (!Number.isFinite(resolved.lightAngle)) resolved.lightAngle = DEFAULT_CONFIG.lightAngle;
   return resolved;
 }

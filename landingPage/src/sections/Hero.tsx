@@ -1,110 +1,43 @@
-import { useEffect, useRef } from 'react';
-import { LiquidGlass } from 'quick-liquid/react';
-import { LiquidGesture } from 'quick-liquid';
-import { useCopy } from '../components/CodeBlock';
-import { Droplet } from '../components/Droplet';
+import { CardGlass } from '../components/CardGlass';
+import { CopyButton } from '../components/CodeBlock';
+import { LiquidGlassButton, useLiquidInteractive } from 'quick-liquid/react';
+import { SpectrumLab } from './SpectrumLab';
+
+const INSTALL_COMMAND = 'npm install quick-liquid';
 
 export function Hero() {
-  const [copied, copy] = useCopy();
-  const stageRef = useRef<HTMLDivElement>(null);
-
-  /* The main card is a physical object: drag it, it springs home. */
-  useEffect(() => {
-    const host = stageRef.current?.querySelector<HTMLElement>('.hero-card');
-    if (!host) return;
-    const gesture = new LiquidGesture(host, {
-      pressScale: 1.02,
-      pressSquish: 0,
-      wobbleOnPress: false,
-      releaseSpring: 'bouncy',
-    });
-    return () => gesture.destroy();
-  }, []);
+  const commandRef = useLiquidInteractive<HTMLDivElement>({
+    hoverLift: 1.5,
+    hoverScale: 1.008,
+    pressScale: 0.99,
+    pressSquish: 0.01,
+    ripple: false,
+  });
 
   return (
-    <header className="hero" id="top">
-      <div className="hero-aurora" aria-hidden>
-        <i className="aurora-blob a1" />
-        <i className="aurora-blob a2" />
-        <i className="aurora-blob a3" />
-      </div>
-      <div className="hero-grid" aria-hidden />
-
-      <div className="hero-inner">
-        <div className="hero-copy">
-          <span className="hero-badge">MIT package for React and vanilla JS</span>
-          <h1 className="display">
-            Liquid glass{' '}
-            <br />
-            for <em className="ink">tactile web UI.</em>
-          </h1>
-          <p className="hero-sub">
-            Real refraction. Responsive light. Liquid glass for React and vanilla JavaScript, with the optics computed ahead of time.
-          </p>
-
-          <div className="hero-actions">
-            <button className="install-pill" onClick={() => copy('npm install quick-liquid')} type="button">
-              <span className="install-pill__prompt" aria-hidden>
-                $
-              </span>
-              npm install quick-liquid
-              <span className="install-pill__copy">{copied ? 'copied' : 'copy'}</span>
-            </button>
-            <a className="btn btn--primary" href="/playground/">
-              Open the playground
-            </a>
-            <a className="link-more" href="/docs/">
-              Read the docs <span aria-hidden>-&gt;</span>
-            </a>
-          </div>
+    <section className="site-width home-opening" aria-labelledby="hero-title">
+      <div className="home-pitch">
+        <h1 id="hero-title">Ultra-fast<br />liquid glass</h1>
+        <p className="home-pitch__description">
+          Real refraction, chromatic rims, and spring motion—precomputed once and cached across surfaces for extreme performance.
+        </p>
+        <div className="home-pitch__actions">
+          <LiquidGlassButton className="glass-button glass-button--bright" href="/playground/">
+            Open Playground
+          </LiquidGlassButton>
+          <LiquidGlassButton className="glass-button" href="/docs/">
+            Read the docs
+          </LiquidGlassButton>
         </div>
-
-        <div className="hero-stage" ref={stageRef}>
-          <div className="hero-scene" aria-hidden>
-            <i className="hs-beam" />
-            <i className="hs-glow" />
-            <i className="hs-grid" />
-            <i className="hs-ball hb1" />
-            <i className="hs-ball hb2" />
-            <i className="hs-ball hb3" />
-            <span className="hs-word">refraction</span>
-          </div>
-
-          <LiquidGlass
-            className="hero-card"
-            animateIn={200}
-            config={{
-              blur: 2,
-              refractionStrength: 28,
-              bezelWidth: 36,
-              thickness: 26,
-              chromaticAberration: 0.18,
-              tintOpacity: 0.03,
-              appearance: 'dark',
-              edgeHighlight: 0.95,
-              specularStrength: 0.12,
-              borderRadius: 28,
-              cursorTracking: true,
-            }}
-          >
-            <div className="hero-card__body">
-              <div className="hero-card__row">
-                <span className="hero-card__icon" aria-hidden>
-                  <Droplet size={34} poke={false} />
-                </span>
-                <div>
-                  <b>Liquid Glass</b>
-                  <small>drag me. The scene bends beneath.</small>
-                </div>
-              </div>
-              <div className="hero-card__chips" aria-hidden>
-                <span>clear center</span>
-                <span>refractive edge</span>
-              </div>
-            </div>
-          </LiquidGlass>
+        <div ref={commandRef} className="home-command home-pitch__command glass-pane">
+          <CardGlass />
+          <span aria-hidden>$</span>
+          <code>{INSTALL_COMMAND}</code>
+          <CopyButton text={INSTALL_COMMAND} className="glass-button" label="Copy npm install command" />
         </div>
+        <p className="home-pitch__compatibility">React <span aria-hidden>·</span> Vanilla JS <span aria-hidden>·</span> MIT</p>
       </div>
-    </header>
+      <SpectrumLab />
+    </section>
   );
 }

@@ -3,7 +3,7 @@
  * Drives both the interactive playground controls AND the docs API table,
  * so the two can never drift apart.
  */
-import type { LiquidGlassConfig } from 'quick-liquid';
+import { QUALITY_PRESETS, type LiquidGlassConfig } from 'quick-liquid';
 
 export type ControlSpec =
   | { kind: 'slider'; min: number; max: number; step: number; unit?: string; precision?: number }
@@ -290,7 +290,7 @@ export const PROPERTIES: PropertyDef[] = [
     group: 'Dispersion',
     type: `'auto' | 'exact'`,
     defaultValue: `'auto'`,
-    description: 'Auto skips RGB splitting when frost masks the separation; exact retains three channel samples. Low quality and negligible dispersion use one sample in either mode.',
+    description: 'Auto skips RGB splitting when frost masks the separation; exact retains three channel samples. Low always uses one sample. Extreme retains RGB for any positive dispersion.',
     control: { kind: 'select', options: ['auto', 'exact'] },
   },
   {
@@ -312,13 +312,22 @@ export const PROPERTIES: PropertyDef[] = [
     control: { kind: 'slider', min: 4, max: 72, step: 1, unit: 'px', precision: 0 },
   },
   {
+    key: 'magnification',
+    label: 'Magnification',
+    group: 'Refraction Geometry',
+    type: 'number',
+    defaultValue: '1',
+    description: 'Center zoom from 1× to 3×. The shoulder blends the enlarged image into the curved edge.',
+    control: { kind: 'slider', min: 1, max: 3, step: 0.1 },
+  },
+  {
     key: 'quality',
     label: 'Quality',
     group: 'Rendering',
-    type: `'high' | 'medium' | 'low'`,
+    type: `'low' | 'medium' | 'high' | 'ultra' | 'extreme'`,
     defaultValue: `'high'`,
-    description: 'Displacement map resolution cap — 1024 / 384 / 128 px. Lower tiers trade rim crispness for map-generation speed.',
-    control: { kind: 'select', options: ['high', 'medium', 'low'] },
+    description: 'Lower tiers reduce map size and generation cost. Ultra and extreme supersample edges. Extreme retains RGB splitting through frost.',
+    control: { kind: 'select', options: Object.keys(QUALITY_PRESETS) },
   },
   {
     key: 'refractionMode',

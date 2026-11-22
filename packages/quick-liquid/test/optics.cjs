@@ -73,3 +73,26 @@ test('explicit overrides and material selection remain distinct; invalid numbers
   assert.equal(c.thickness, .1); assert.equal(c.borderRadius, DEFAULT_CONFIG.borderRadius);
   assert.equal(resolveGlassConfig({ dynamicLighting: true, cursorTracking: false }).cursorTracking, false);
 });
+
+test('quality tiers increase the sample budget and extreme keeps faint RGB fringes', async () => {
+  const { QUALITY_PRESETS, resolveGlassConfig } = await config;
+  const { usesDispersion } = await optics;
+  const tiers = Object.values(QUALITY_PRESETS);
+  assert.equal(tiers.length, 5);
+  for (let i = 1; i < tiers.length; i++) {
+    assert.ok(tiers[i].cap > tiers[i - 1].cap && tiers[i].density > tiers[i - 1].density);
+  }
+  assert.equal(resolveGlassConfig({quality: 'unknown'}).quality, 'high');
+  assert.equal(usesDispersion(20, .005, 20, 'extreme'), true);
+  assert.equal(usesDispersion(20, 0, 20, 'extreme'), false);
+});
+
+test('2x magnification samples the midpoint towards the optical center', async () => {
+  const { rasterizeLens, refractionProfile } = await optics;
+  const r = rasterizeLens({width: 200, height: 100, radius: 22, bezel: 12, thickness: 12,
+    ior: 1.5, mapWidth: 200, mapHeight: 100, padding: 0, magnification: 2, strength: 0});
+  const dx = (r.data[(50 * 200 + 50) * 4] - 128) / 127 * 50;
+  assert.ok(Math.abs(dx - 24.75) < .25);
+  const curve = refractionProfile(24, 34, 1.5);
+  assert.ok(curve.at(-2) < .0001);
+});

@@ -1,34 +1,9 @@
-/**
- * quick-liquid/animations/group.ts
- * 
- * Liquid Group — multi-element merge/split system.
- * 
- * THE "WATER BALL" EFFECT:
- * When two liquid glass elements come close enough, they merge
- * into a single blob with a smooth organic bridge (like water
- * surface tension pulling droplets together). When they separate,
- * the bridge stretches thin and snaps with a satisfying pop.
- * 
- * This is the most distinctive Apple liquid glass behavior:
- * - Tab bar icons merge into background pill
- * - Notification cards stack/merge when grouped
- * - Toggle elements flow between states
- * - Dock icons' glass overlays merge when adjacent
- * 
- * IMPLEMENTATION:
- * Uses a shared SVG mask/clip-path that renders the smooth-min
- * metaball field for all member elements. As elements move, the
- * field updates and the organic bridge appears/disappears.
- * 
- * PERFORMANCE:
- * - The metaball field is computed at LOW resolution (1/4 pixel)
- * - Only recomputes when elements actually move (intersection observer)
- * - Uses canvas for the SDF field, converted to SVG mask
- * - GPU-composited: the mask is applied via CSS, actual rendering is browser-side
- */
-
+import { MetaballSurface, type BlobShape } from './metaball-surface';
+import { sdfRoundedRect } from '../math/sdf';
 import { Spring, SpringConfig, SpringPreset } from './spring';
 import { AnimationScheduler } from './scheduler';
+import { LiquidGlassEngine, type LiquidGlassConfig } from '../core/engine';
+import { computeBoundedJellyBox, ensureAnimStyles } from './interactive';
 
 export interface LiquidGroupConfig {
   /** Distance threshold to start forming a bridge (px) */
@@ -49,6 +24,8 @@ export interface LiquidGroupConfig {
   bridgeRimColor: string;
   /** Rim width */
   bridgeRimWidth: number;
+  /** Optional origin-clean 2D scene canvas covering the container, for direct backdrop sampling. */
+  backdrop?: HTMLCanvasElement;
   /** Callback when elements merge */
   onMerge?: (elements: HTMLElement[]) => void;
   /** Callback when elements split */
@@ -69,500 +46,593 @@ const DEFAULT_GROUP_CONFIG: LiquidGroupConfig = {
   onSplit: undefined,
 };
 
-interface MemberInfo {
+interface MemberInfo extends BlobShape {
   el: HTMLElement;
-  cx: number;
-  cy: number;
-  rx: number;  // half-width
-  ry: number;  // half-height
-  radius: number;
-  merged: Set<HTMLElement>; // currently merged with
+  merged: Set<HTMLElement>;
 }
 
-/**
- * LiquidGroup manages a set of elements that can merge/split
- * with organic liquid animations.
- */
+/** Members provide geometry and interaction. The group paints their shared glass. */
 export class LiquidGroup {
-  private container: HTMLElement;
   private cfg: LiquidGroupConfig;
-  private scheduler: AnimationScheduler;
-  private members: Map<HTMLElement, MemberInfo> = new Map();
-  
-  // Rendering
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private rimCanvas: HTMLCanvasElement;
-  private rimCtx: CanvasRenderingContext2D;
-  
-  // Animation state
+  private members = new Map<HTMLElement, MemberInfo>();
+  private scheduler = AnimationScheduler.shared();
   private blendSpring: Spring;
+  private surface?: MetaballSurface;
   private animId: number | null = null;
-  private needsUpdate = false;
-  private observer: MutationObserver | null = null;
-  private resizeObserver: ResizeObserver | null = null;
-  
-  // Merge tracking
-  private mergedPairs: Set<string> = new Set();
+  private observer: MutationObserver;
+  private sizes: ResizeObserver;
+  private previousPosition: string | undefined;
 
-  constructor(container: HTMLElement, config: Partial<LiquidGroupConfig> = {}) {
-    this.container = container;
+  constructor(private container: HTMLElement, config: Partial<LiquidGroupConfig> = {}) {
     this.cfg = { ...DEFAULT_GROUP_CONFIG, ...config };
-    this.scheduler = AnimationScheduler.shared();
-    this.blendSpring = new Spring(0, this.cfg.spring);
-    
-    // Setup rendering canvases
-    this.canvas = document.createElement('canvas');
-    this.ctx = this.canvas.getContext('2d')!;
-    this.rimCanvas = document.createElement('canvas');
-    this.rimCtx = this.rimCanvas.getContext('2d')!;
-    
+    this.blendSpring = new Spring(1, this.cfg.spring);
     if (this.cfg.renderBlob) {
-      this.setupRenderLayer();
-    }
-    
-    this.setupObservers();
-  }
-
-  /**
-   * Add an element to the liquid group.
-   * It will now participate in merge/split animations with other members.
-   */
-  add(element: HTMLElement): void {
-    const rect = element.getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
-    const radius = parseFloat(getComputedStyle(element).borderRadius) || 0;
-    
-    this.members.set(element, {
-      el: element,
-      cx: rect.left + rect.width / 2 - containerRect.left,
-      cy: rect.top + rect.height / 2 - containerRect.top,
-      rx: rect.width / 2,
-      ry: rect.height / 2,
-      radius: Math.min(radius, rect.width / 2, rect.height / 2),
-      merged: new Set(),
-    });
-    
-    this.needsUpdate = true;
-    this.startAnimation();
-  }
-
-  /**
-   * Remove an element from the group.
-   */
-  remove(element: HTMLElement): void {
-    this.members.delete(element);
-    this.needsUpdate = true;
-    
-    // Clean up merge pairs
-    for (const key of this.mergedPairs) {
-      if (key.includes(String(element))) {
-        this.mergedPairs.delete(key);
+      if (getComputedStyle(container).position === 'static') {
+        this.previousPosition = container.style.position;
+        container.style.position = 'relative';
       }
+      this.surface = new MetaballSurface(container, this.cfg);
     }
+    this.observer = new MutationObserver(() => this.schedule());
+    this.observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
+    this.sizes = new ResizeObserver(() => this.schedule());
+    this.sizes.observe(container);
   }
 
-  /**
-   * Force update positions (call after layout changes).
-   */
+  add(el: HTMLElement): void {
+    if (this.members.has(el)) return;
+    this.members.set(el, { el, cx: 0, cy: 0, rx: 0, ry: 0, radius: 0, merged: new Set() });
+    this.sizes.observe(el);
+    this.schedule();
+  }
+
+  remove(el: HTMLElement): void {
+    this.sizes.unobserve(el);
+    this.members.delete(el);
+    for (const info of this.members.values()) info.merged.delete(el);
+    this.schedule();
+  }
+
   updatePositions(): void {
-    const containerRect = this.container.getBoundingClientRect();
-    
-    for (const [el, info] of this.members) {
-      const rect = el.getBoundingClientRect();
-      info.cx = rect.left + rect.width / 2 - containerRect.left;
-      info.cy = rect.top + rect.height / 2 - containerRect.top;
-      info.rx = rect.width / 2;
-      info.ry = rect.height / 2;
-      info.radius = Math.min(
-        parseFloat(getComputedStyle(el).borderRadius) || 0,
-        rect.width / 2,
-        rect.height / 2
-      );
-    }
-    
-    this.needsUpdate = true;
-    this.startAnimation();
+    this.surface?.refreshBackdrop();
+    this.schedule();
   }
 
-  /**
-   * Manually trigger a merge animation between specific elements.
-   */
   merge(_elements: HTMLElement[], spring?: Partial<SpringConfig> | SpringPreset): void {
     this.blendSpring = new Spring(0, spring || this.cfg.spring);
     this.blendSpring.setTarget(1);
-    this.needsUpdate = true;
-    this.startAnimation();
+    this.schedule();
   }
 
-  /**
-   * Manually trigger a split animation.
-   */
   split(spring?: Partial<SpringConfig> | SpringPreset): void {
-    this.blendSpring = new Spring(1, spring || 'liquidSplit');
+    this.blendSpring = new Spring(this.blendSpring.value, spring || 'liquidSplit');
     this.blendSpring.setTarget(0);
-    this.needsUpdate = true;
-    this.startAnimation();
+    this.schedule();
   }
 
-  // ─── Internal ─────────────────────────────────────────────────
-
-  private setupRenderLayer(): void {
-    Object.assign(this.canvas.style, {
-      position: 'absolute',
-      inset: '0',
-      width: '100%',
-      height: '100%',
-      pointerEvents: 'none',
-      zIndex: '5',
-      opacity: String(this.cfg.bridgeOpacity),
-      mixBlendMode: 'screen',
-    });
-
-    Object.assign(this.rimCanvas.style, {
-      position: 'absolute',
-      inset: '0',
-      width: '100%',
-      height: '100%',
-      pointerEvents: 'none',
-      zIndex: '6',
-    });
-    
-    this.container.style.position = this.container.style.position || 'relative';
-    this.container.appendChild(this.canvas);
-    this.container.appendChild(this.rimCanvas);
-    
-    this.resizeCanvas();
-  }
-
-  private resizeCanvas(): void {
-    const rect = this.container.getBoundingClientRect();
-    const res = this.cfg.resolution;
-    this.canvas.width = Math.ceil(rect.width / res);
-    this.canvas.height = Math.ceil(rect.height / res);
-    this.rimCanvas.width = Math.ceil(rect.width / res);
-    this.rimCanvas.height = Math.ceil(rect.height / res);
-  }
-
-  private setupObservers(): void {
-    // Watch for DOM changes that might affect positions
-    this.observer = new MutationObserver(() => {
-      this.updatePositions();
-    });
-    this.observer.observe(this.container, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    });
-    
-    // Watch container resize
-    this.resizeObserver = new ResizeObserver(() => {
-      this.resizeCanvas();
-      this.updatePositions();
-    });
-    this.resizeObserver.observe(this.container);
-  }
-
-  private startAnimation(): void {
+  private schedule(): void {
     if (this.animId !== null) return;
-    
-    this.animId = this.scheduler.schedule((now) => {
-      this.updatePositions();
-      
-      const springActive = this.blendSpring.tick(now);
-      
-      if (this.cfg.renderBlob) {
-        this.renderMergeField();
+    const reduced = AnimationScheduler.prefersReducedMotion();
+    const id = this.scheduler.schedule(now => {
+      const moving = this.blendSpring.tick(now);
+      const rect = this.container.getBoundingClientRect();
+      const scaleX = rect.width / (this.container.offsetWidth || 1) || 1;
+      const scaleY = rect.height / (this.container.offsetHeight || 1) || 1;
+      const shapes = [...this.members.values()];
+      for (const s of shapes) {
+        const bounds = s.el.getBoundingClientRect();
+        s.rx = bounds.width / scaleX / 2;
+        s.ry = bounds.height / scaleY / 2;
+        s.cx = (bounds.left - rect.left) / scaleX + s.rx - this.container.clientLeft + this.container.scrollLeft;
+        s.cy = (bounds.top - rect.top) / scaleY + s.ry - this.container.clientTop + this.container.scrollTop;
+        const radius = getComputedStyle(s.el).borderTopLeftRadius;
+        const limit = Math.min(s.rx, s.ry);
+        s.radius = Math.min(limit, (parseFloat(radius) || 0) * (radius.includes('%') ? limit / 50 : 1));
       }
-      
-      this.detectMerges();
-      
-      const hasActivity = springActive || this.needsUpdate;
-      this.needsUpdate = false;
-      
-      if (!hasActivity) {
-        this.animId = null;
-      }
-      return hasActivity;
-    });
-  }
-
-  private renderMergeField(): void {
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    const res = this.cfg.resolution;
-    const members = [...this.members.values()];
-    
-    if (members.length < 2) {
-      this.ctx.clearRect(0, 0, w, h);
-      this.rimCtx.clearRect(0, 0, w, h);
-      return;
-    }
-    
-    const img = this.ctx.createImageData(w, h);
-    const data = img.data;
-    const rimImg = this.rimCtx.createImageData(w, h);
-    const rimData = rimImg.data;
-    
-    const blendK = this.cfg.blendRadius / res;
-
-    for (let py = 0; py < h; py++) {
-      for (let px = 0; px < w; px++) {
-        // Compute smooth-min of all member SDFs
-        let mergedDist = Infinity;
-        
-        for (const member of members) {
-          const cx = member.cx / res;
-          const cy = member.cy / res;
-          const rx = member.rx / res;
-          const ry = member.ry / res;
-          const r = member.radius / res;
-          
-          // Rounded rect SDF for this member
-          const dx = Math.abs(px - cx) - (rx - r);
-          const dy = Math.abs(py - cy) - (ry - r);
-          const outsideDist = Math.sqrt(Math.max(dx, 0) ** 2 + Math.max(dy, 0) ** 2) - r;
-          const d = Math.min(Math.max(dx, dy), outsideDist);
-          
-          // Smooth minimum — the magic sauce for organic blending
-          if (mergedDist === Infinity) {
-            mergedDist = d;
+      // At the saddle between equal fields the cubic smooth-min subtracts k/6.
+      // A gap of k/3 therefore closes exactly as the two lobes become connected.
+      const reach = Math.max(0, Math.min(this.cfg.mergeDistance, this.cfg.blendRadius) * this.blendSpring.value);
+      this.surface?.draw(shapes.filter(s => s.rx > 0 && s.ry > 0), reach * 3);
+      for (let i = 0; i < shapes.length; i++) {
+        const a = shapes[i];
+        for (const b of shapes.slice(i + 1)) {
+          const gap = sdfRoundedRect(a.cx, a.cy, b.cx, b.cy, a.rx + b.rx, a.ry + b.ry, a.radius + b.radius);
+          const joined = gap < reach && a.rx > 0 && b.rx > 0;
+          if (joined === a.merged.has(b.el)) continue;
+          if (joined) {
+            a.merged.add(b.el); b.merged.add(a.el);
+            this.cfg.onMerge?.([a.el, b.el]);
           } else {
-            const hh = Math.max(blendK - Math.abs(mergedDist - d), 0) / blendK;
-            mergedDist = Math.min(mergedDist, d) - hh * hh * hh * blendK * (1 / 6);
+            a.merged.delete(b.el); b.merged.delete(a.el);
+            this.cfg.onSplit?.([a.el, b.el]);
           }
         }
-
-        const i = (py * w + px) * 4;
-        
-        // Only render the BRIDGE area (exclude individual element areas)
-        // We detect bridge pixels as those that are inside the merged field
-        // but NOT strongly inside any single element
-        let insideSingle = false;
-        for (const member of members) {
-          const cx = member.cx / res;
-          const cy = member.cy / res;
-          const rx = member.rx / res;
-          const ry = member.ry / res;
-          const r = member.radius / res;
-          const dx = Math.abs(px - cx) - (rx - r);
-          const dy = Math.abs(py - cy) - (ry - r);
-          const outsideDist = Math.sqrt(Math.max(dx, 0) ** 2 + Math.max(dy, 0) ** 2) - r;
-          const d = Math.min(Math.max(dx, dy), outsideDist);
-          if (d < -2) { insideSingle = true; break; }
-        }
-        
-        if (insideSingle) continue; // Skip — element handles its own glass
-
-        if (mergedDist < 0) {
-          // Inside the bridge fill
-          const intensity = Math.min(1, -mergedDist / 3);
-          data[i] = 255;
-          data[i + 1] = 255;
-          data[i + 2] = 255;
-          data[i + 3] = Math.round(intensity * 60);
-        }
-        
-        // Rim highlight on the bridge boundary
-        if (Math.abs(mergedDist) < this.cfg.bridgeRimWidth) {
-          const rimIntensity = 1 - Math.abs(mergedDist) / this.cfg.bridgeRimWidth;
-          rimData[i] = 255;
-          rimData[i + 1] = 255;
-          rimData[i + 2] = 255;
-          rimData[i + 3] = Math.round(rimIntensity * 200);
-        }
       }
-    }
-    
-    this.ctx.putImageData(img, 0, 0);
-    this.rimCtx.putImageData(rimImg, 0, 0);
+      if (!moving) this.animId = null;
+      return moving;
+    });
+    if (!reduced) this.animId = id;
   }
 
-  private detectMerges(): void {
-    const members = [...this.members.values()];
-    
-    for (let i = 0; i < members.length; i++) {
-      for (let j = i + 1; j < members.length; j++) {
-        const a = members[i];
-        const b = members[j];
-        
-        // Distance between element edges
-        const dx = a.cx - b.cx;
-        const dy = a.cy - b.cy;
-        const centerDist = Math.sqrt(dx * dx + dy * dy);
-        const edgeDist = centerDist - a.rx - b.rx;
-        
-        const pairKey = `${i}-${j}`;
-        const wasMerged = this.mergedPairs.has(pairKey);
-        const shouldMerge = edgeDist < this.cfg.mergeDistance;
-        
-        if (shouldMerge && !wasMerged) {
-          this.mergedPairs.add(pairKey);
-          a.merged.add(b.el);
-          b.merged.add(a.el);
-          this.cfg.onMerge?.([a.el, b.el]);
-        } else if (!shouldMerge && wasMerged) {
-          this.mergedPairs.delete(pairKey);
-          a.merged.delete(b.el);
-          b.merged.delete(a.el);
-          this.cfg.onSplit?.([a.el, b.el]);
-        }
-      }
-    }
-  }
-
-  /** Get elements currently merged with a given element */
-  getMergedWith(element: HTMLElement): HTMLElement[] {
-    const info = this.members.get(element);
-    return info ? [...info.merged] : [];
-  }
-
-  /** Check if two elements are currently merged */
-  areMerged(a: HTMLElement, b: HTMLElement): boolean {
-    const info = this.members.get(a);
-    return info?.merged.has(b) ?? false;
-  }
+  getMergedWith(el: HTMLElement): HTMLElement[] { return [...(this.members.get(el)?.merged ?? [])]; }
+  areMerged(a: HTMLElement, b: HTMLElement): boolean { return this.members.get(a)?.merged.has(b) ?? false; }
 
   destroy(): void {
-    if (this.animId !== null) {
-      this.scheduler.cancel(this.animId);
-    }
-    if (this.observer) this.observer.disconnect();
-    if (this.resizeObserver) this.resizeObserver.disconnect();
-    this.canvas.remove();
-    this.rimCanvas.remove();
+    if (this.animId !== null) this.scheduler.cancel(this.animId);
+    this.observer.disconnect();
+    this.sizes.disconnect();
+    this.surface?.destroy();
+    if (this.previousPosition !== undefined) this.container.style.position = this.previousPosition;
     this.members.clear();
-    this.mergedPairs.clear();
   }
 }
 
+export interface LiquidTabBarConfig {
+  spring?: Partial<SpringConfig> | SpringPreset;
+  orientation?: 'horizontal' | 'vertical';
+  glass?: boolean | Partial<LiquidGlassConfig>;
+  hoverFollower?: boolean;
+  stretch?: number;
+}
+
+const DEFAULT_TAB_SPRING: Partial<SpringConfig> = {
+  stiffness: 860,
+  damping: 34,
+  mass: 0.68,
+  restDisplacementThreshold: 0.5,
+  restThreshold: 12,
+};
+
+const DEFAULT_SCALE_SPRING: Partial<SpringConfig> = {
+  stiffness: 920,
+  damping: 42,
+  mass: 0.68,
+  restDisplacementThreshold: 0.006,
+  restThreshold: 0.08,
+};
+
+function resolveTabPosSpring(spring?: Partial<SpringConfig> | SpringPreset): Partial<SpringConfig> | SpringPreset {
+  if (!spring) return DEFAULT_TAB_SPRING;
+  if (typeof spring === 'string') return spring;
+  return { restDisplacementThreshold: 0.5, restThreshold: 12, ...spring };
+}
+
+function resolveTabScaleSpring(spring?: Partial<SpringConfig> | SpringPreset): Partial<SpringConfig> | SpringPreset {
+  if (!spring) return DEFAULT_SCALE_SPRING;
+  if (typeof spring === 'string') return spring;
+  return { restDisplacementThreshold: 0.006, restThreshold: 0.08, ...spring };
+}
+
+const DEFAULT_TAB_GLASS: Partial<LiquidGlassConfig> = {
+  quality: 'medium',
+  appearance: 'dark',
+  blur: 6,
+  refractionStrength: 14,
+  bezelWidth: 12,
+  thickness: 14,
+  tintOpacity: 0.14,
+  edgeHighlight: 0.85,
+  specularStrength: 0.36,
+  elevation: 0,
+};
+
 /**
  * Liquid Tab Bar — specialized group for tab-like navigation.
- * 
- * The selection indicator is a glass pill that morphs between
- * tab positions with liquid spring animation. When tabs are close
- * enough, the pill stretches to encompass multiple tabs before
- * snapping to the new selection.
+ *
+ * The selection indicator is a glass pill that glides and jiggles like
+ * jelly strictly inside its container boundary box, optionally backed
+ * by a real LiquidGlassEngine.
  */
 export class LiquidTabBar {
   private container: HTMLElement;
   private items: HTMLElement[];
+  private cfg: LiquidTabBarConfig;
   private indicator: HTMLElement;
+  private hoverEl: HTMLDivElement | null = null;
+  private glassEngine: LiquidGlassEngine | null = null;
   private currentIndex: number = 0;
-  private spring: Spring;
-  private widthSpring: Spring;
+  private xSpring: Spring;
+  private ySpring: Spring;
+  private wScaleSpring: Spring;
+  private hScaleSpring: Spring;
+  private hxSpring: Spring;
+  private hySpring: Spring;
+  private hwSpring: Spring;
+  private hhSpring: Spring;
+  private hoverVisible = false;
+  private hoverAnimId: number | null = null;
+  private targetX = 0;
+  private targetY = 0;
+  private targetW = 0;
+  private targetH = 0;
+  private bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  private lastVisual = { x: 0, y: 0, w: 0, h: 0 };
   private scheduler: AnimationScheduler;
   private animId: number | null = null;
+  private resizeObs: ResizeObserver | null = null;
+  private destroyed = false;
 
   constructor(
     container: HTMLElement,
     items: HTMLElement[],
-    config?: { spring?: Partial<SpringConfig> | SpringPreset }
+    config?: LiquidTabBarConfig
   ) {
+    ensureAnimStyles();
     this.container = container;
     this.items = items;
+    this.cfg = { orientation: 'horizontal', hoverFollower: false, stretch: 0.18, ...config };
     this.scheduler = AnimationScheduler.shared();
-    this.spring = new Spring(0, config?.spring || 'default');
-    this.widthSpring = new Spring(0, config?.spring || 'snappy');
-    
+
+    const posSpringCfg = resolveTabPosSpring(this.cfg.spring);
+    const scaleSpringCfg = resolveTabScaleSpring(this.cfg.spring);
+    this.xSpring = new Spring(0, posSpringCfg);
+    this.ySpring = new Spring(0, posSpringCfg);
+    this.wScaleSpring = new Spring(1, scaleSpringCfg);
+    this.hScaleSpring = new Spring(1, scaleSpringCfg);
+
+    this.hxSpring = new Spring(0, 'snappy');
+    this.hySpring = new Spring(0, 'snappy');
+    this.hwSpring = new Spring(0, 'snappy');
+    this.hhSpring = new Spring(0, 'snappy');
+
+    if (getComputedStyle(container).position === 'static') {
+      container.style.position = 'relative';
+    }
+
+    if (this.cfg.hoverFollower) {
+      this.createHoverFollower();
+    }
+
     // Create the glass indicator element
     this.indicator = document.createElement('div');
     this.indicator.className = 'ql-tab-indicator';
+    this.indicator.setAttribute('aria-hidden', 'true');
     Object.assign(this.indicator.style, {
       position: 'absolute',
       top: '0',
-      height: '100%',
-      borderRadius: 'inherit',
+      left: '0',
+      transformOrigin: 'center center',
       pointerEvents: 'none',
-      transition: 'none', // We handle animation
+      transition: 'none',
     });
-    
-    container.style.position = container.style.position || 'relative';
-    container.insertBefore(this.indicator, container.firstChild);
-    
-    // Set initial position
+
+    container.insertBefore(this.indicator, container.firstChild ? (this.hoverEl ? this.hoverEl.nextSibling : container.firstChild) : null);
+
     if (items.length > 0) {
       this.selectImmediate(0);
     }
+
+    this.syncGlassEngine();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObs = new ResizeObserver(() => {
+        if (!this.destroyed && this.items.length > 0 && this.currentIndex < this.items.length) {
+          this.selectImmediate(this.currentIndex);
+        }
+      });
+      this.resizeObs.observe(container);
+    }
+  }
+
+  private createHoverFollower(): void {
+    if (this.hoverEl) return;
+    const hover = document.createElement('div');
+    hover.className = 'ql-tab-hover';
+    hover.setAttribute('aria-hidden', 'true');
+    Object.assign(hover.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      pointerEvents: 'none',
+      opacity: '0',
+    });
+    this.container.insertBefore(hover, this.container.firstChild);
+    this.hoverEl = hover;
+    this.container.addEventListener('pointerover', this.onHoverOver, { passive: true });
+    this.container.addEventListener('focusin', this.onHoverOver, { passive: true });
+    this.container.addEventListener('pointerleave', this.onHoverLeave, { passive: true });
+  }
+
+  private removeHoverFollower(): void {
+    if (this.hoverAnimId !== null) {
+      this.scheduler.cancel(this.hoverAnimId);
+      this.hoverAnimId = null;
+    }
+    this.container.removeEventListener('pointerover', this.onHoverOver);
+    this.container.removeEventListener('focusin', this.onHoverOver);
+    this.container.removeEventListener('pointerleave', this.onHoverLeave);
+    this.hoverEl?.remove();
+    this.hoverEl = null;
+    this.hoverVisible = false;
+  }
+
+  private syncGlassEngine(): void {
+    if (this.cfg.glass) {
+      const sample = this.items[0] || this.container;
+      const sampleStyle = getComputedStyle(sample);
+      const rawRadius = parseFloat(sampleStyle.borderTopLeftRadius) || parseFloat(getComputedStyle(this.container).borderTopLeftRadius) || 10;
+      const detectedRadius = Math.min(rawRadius, Math.max(8, (this.targetH || 36) / 2));
+      const extra = typeof this.cfg.glass === 'object' ? this.cfg.glass : {};
+      const nextCfg: Partial<LiquidGlassConfig> = {
+        ...DEFAULT_TAB_GLASS,
+        borderRadius: detectedRadius,
+        ...extra,
+      };
+      if (this.glassEngine) {
+        this.glassEngine.setConfig(nextCfg);
+      } else {
+        this.glassEngine = new LiquidGlassEngine(this.indicator, nextCfg);
+      }
+    } else if (this.glassEngine) {
+      this.glassEngine.destroy();
+      this.glassEngine = null;
+    }
+  }
+
+  private measureItem(el: HTMLElement): { x: number; y: number; w: number; h: number } {
+    const containerRect = this.container.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const scaleX = containerRect.width / (this.container.offsetWidth || 1) || 1;
+    const scaleY = containerRect.height / (this.container.offsetHeight || 1) || 1;
+    return {
+      x: (rect.left - containerRect.left) / scaleX - this.container.clientLeft + this.container.scrollLeft,
+      y: (rect.top - containerRect.top) / scaleY - this.container.clientTop + this.container.scrollTop,
+      w: rect.width / scaleX,
+      h: rect.height / scaleY,
+    };
+  }
+
+  private measureBounds(): void {
+    if (this.items.length === 0) return;
+    const rects = this.items.map(el => this.measureItem(el));
+    const itemMinX = Math.min(...rects.map(r => r.x));
+    const itemMaxX = Math.max(...rects.map(r => r.x + r.w));
+    const itemMinY = Math.min(...rects.map(r => r.y));
+    const itemMaxY = Math.max(...rects.map(r => r.y + r.h));
+    const maxW = Math.max(...rects.map(r => r.w));
+    const maxH = Math.max(...rects.map(r => r.h));
+    const clientW = this.container.clientWidth || itemMaxX;
+    const clientH = this.container.clientHeight || itemMaxY;
+
+    const singleRow = itemMaxY - itemMinY <= maxH + 2;
+    const singleCol = itemMaxX - itemMinX <= maxW + 2;
+
+    this.bounds = {
+      minX: singleCol ? Math.max(0, Math.min(itemMinX, itemMinX - 2)) : Math.max(0, itemMinX),
+      maxX: singleCol ? Math.min(clientW, Math.max(itemMaxX, itemMaxX + 2)) : Math.min(clientW, itemMaxX),
+      minY: singleRow ? Math.max(0, Math.min(itemMinY, itemMinY - 2)) : Math.max(0, itemMinY),
+      maxY: singleRow ? Math.min(clientH, Math.max(itemMaxY, itemMaxY + 2)) : Math.min(clientH, itemMaxY),
+    };
+  }
+
+  private onHoverOver = (e: Event): void => {
+    if (this.destroyed || !this.hoverEl) return;
+    const target = e.target as Node | null;
+    const item = this.items.find(it => it === target || it.contains(target));
+    if (!item) return;
+
+    const { x, y, w, h } = this.measureItem(item);
+    if (!this.hoverVisible || AnimationScheduler.prefersReducedMotion()) {
+      this.hxSpring.setValue(x); this.hxSpring.setTarget(x);
+      this.hySpring.setValue(y); this.hySpring.setTarget(y);
+      this.hwSpring.setValue(w); this.hwSpring.setTarget(w);
+      this.hhSpring.setValue(h); this.hhSpring.setTarget(h);
+      this.applyHover();
+      this.hoverVisible = true;
+      this.hoverEl.style.opacity = '1';
+      return;
+    }
+
+    this.hxSpring.setTarget(x);
+    this.hySpring.setTarget(y);
+    this.hwSpring.setTarget(w);
+    this.hhSpring.setTarget(h);
+    this.hoverEl.style.opacity = '1';
+    if (this.hoverAnimId === null) {
+      this.hoverAnimId = this.scheduler.schedule(now => {
+        const a = this.hxSpring.tick(now);
+        const b = this.hySpring.tick(now);
+        const c = this.hwSpring.tick(now);
+        const d = this.hhSpring.tick(now);
+        const active = a || b || c || d;
+        this.applyHover();
+        if (!active) this.hoverAnimId = null;
+        return active;
+      });
+    }
+  };
+
+  private onHoverLeave = (): void => {
+    this.hoverVisible = false;
+    if (this.hoverEl) this.hoverEl.style.opacity = '0';
+  };
+
+  private applyHover(): void {
+    if (!this.hoverEl) return;
+    this.hoverEl.style.width = `${Math.max(0, this.hwSpring.value).toFixed(1)}px`;
+    this.hoverEl.style.height = `${Math.max(0, this.hhSpring.value).toFixed(1)}px`;
+    this.hoverEl.style.transform = `translate3d(${this.hxSpring.value.toFixed(2)}px, ${this.hySpring.value.toFixed(2)}px, 0)`;
   }
 
   /**
-   * Select a tab — the indicator morphs to it with liquid animation.
-   * 
-   * The stretch effect: indicator first expands to cover the gap
-   * between old and new position, then contracts to the new tab.
+   * Select a tab — the indicator glides and stretches to it with liquid spring physics.
    */
   select(index: number): void {
     if (index === this.currentIndex) return;
     if (index < 0 || index >= this.items.length) return;
-    
-    const prevRect = this.items[this.currentIndex].getBoundingClientRect();
-    const nextRect = this.items[index].getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
-    
-    const prevX = prevRect.left - containerRect.left;
-    const nextX = nextRect.left - containerRect.left;
-    
-    // First: stretch to cover both positions (the liquid bridge)
-    const stretchLeft = Math.min(prevX, nextX);
-    const stretchRight = Math.max(prevX + prevRect.width, nextX + nextRect.width);
-    const stretchWidth = stretchRight - stretchLeft;
-    
+
+    this.measureBounds();
+    const fallback = this.measureItem(this.items[this.currentIndex]);
+    const prevCenterX = this.lastVisual.w > 0 ? this.lastVisual.x + this.lastVisual.w / 2 : fallback.x + fallback.w / 2;
+    const prevCenterY = this.lastVisual.h > 0 ? this.lastVisual.y + this.lastVisual.h / 2 : fallback.y + fallback.h / 2;
+    const currW = this.lastVisual.w > 0 ? this.lastVisual.w : fallback.w;
+    const currH = this.lastVisual.h > 0 ? this.lastVisual.h : fallback.h;
+
+    const next = this.measureItem(this.items[index]);
     this.currentIndex = index;
-    
-    // Animate X position
-    this.spring.setTarget(nextX);
-    
-    // Width: first expand, then contract
-    // We achieve this by overshooting the width spring
-    this.widthSpring.setValue(stretchWidth, 0);
-    this.widthSpring.setTarget(nextRect.width);
-    
+
+    if (AnimationScheduler.prefersReducedMotion()) {
+      this.selectImmediate(index);
+      return;
+    }
+
+    this.targetX = next.x;
+    this.targetY = next.y;
+    this.targetW = next.w;
+    this.targetH = next.h;
+
+    this.indicator.style.width = `${next.w.toFixed(1)}px`;
+    this.indicator.style.height = `${next.h.toFixed(1)}px`;
+
+    this.xSpring.setValue(prevCenterX - next.w / 2, this.xSpring.velocity);
+    this.xSpring.setTarget(next.x);
+    this.ySpring.setValue(prevCenterY - next.h / 2, this.ySpring.velocity);
+    this.ySpring.setTarget(next.y);
+
+    this.wScaleSpring.setValue(currW / Math.max(1, next.w), 0);
+    this.wScaleSpring.setTarget(1);
+    this.hScaleSpring.setValue(currH / Math.max(1, next.h), 0);
+    this.hScaleSpring.setTarget(1);
+
+    this.applyIndicator(true);
     this.startAnimation();
+  }
+
+  /** Set active tab index and animate if changed. */
+  setActiveIndex(index: number): void {
+    this.select(index);
   }
 
   /** Set tab without animation */
   selectImmediate(index: number): void {
+    if (index < 0 || index >= this.items.length) return;
+    if (this.animId !== null) {
+      this.scheduler.cancel(this.animId);
+      this.animId = null;
+    }
     this.currentIndex = index;
-    const rect = this.items[index].getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
-    const x = rect.left - containerRect.left;
-    
-    this.spring.setValue(x);
-    this.spring.setTarget(x);
-    this.widthSpring.setValue(rect.width);
-    this.widthSpring.setTarget(rect.width);
-    
-    this.indicator.style.transform = `translateX(${x}px)`;
-    this.indicator.style.width = `${rect.width}px`;
+    this.measureBounds();
+    const m = this.measureItem(this.items[index]);
+    this.targetX = m.x;
+    this.targetY = m.y;
+    this.targetW = m.w;
+    this.targetH = m.h;
+
+    this.xSpring.setValue(m.x, 0);
+    this.xSpring.setTarget(m.x);
+    this.ySpring.setValue(m.y, 0);
+    this.ySpring.setTarget(m.y);
+    this.wScaleSpring.setValue(1, 0);
+    this.wScaleSpring.setTarget(1);
+    this.hScaleSpring.setValue(1, 0);
+    this.hScaleSpring.setTarget(1);
+
+    this.indicator.style.width = `${m.w.toFixed(1)}px`;
+    this.indicator.style.height = `${m.h.toFixed(1)}px`;
+    this.applyIndicator(false);
   }
 
-  /** Get indicator element (to apply liquid glass effect to it) */
+  /** Replace tracked tab elements cleanly when dynamic options change. */
+  updateItems(items: HTMLElement[], activeIndex?: number): void {
+    this.items = items;
+    const nextIdx = activeIndex ?? Math.min(this.currentIndex, Math.max(0, items.length - 1));
+    if (items.length > 0) this.selectImmediate(nextIdx);
+  }
+
+  /** Update spring, glass, stretch, or hoverFollower configuration live. */
+  updateConfig(config: LiquidTabBarConfig): void {
+    this.cfg = { ...this.cfg, ...config };
+    if (config.spring !== undefined) {
+      const posCfg = resolveTabPosSpring(config.spring);
+      const scaleCfg = resolveTabScaleSpring(config.spring);
+      if (typeof posCfg === 'string') {
+        this.xSpring = new Spring(this.xSpring.value, posCfg);
+        this.xSpring.setTarget(this.targetX);
+        this.ySpring = new Spring(this.ySpring.value, posCfg);
+        this.ySpring.setTarget(this.targetY);
+        this.wScaleSpring = new Spring(this.wScaleSpring.value, scaleCfg);
+        this.wScaleSpring.setTarget(1);
+        this.hScaleSpring = new Spring(this.hScaleSpring.value, scaleCfg);
+        this.hScaleSpring.setTarget(1);
+      } else {
+        this.xSpring.updateConfig(posCfg);
+        this.ySpring.updateConfig(posCfg);
+        this.wScaleSpring.updateConfig(scaleCfg as Partial<SpringConfig>);
+        this.hScaleSpring.updateConfig(scaleCfg as Partial<SpringConfig>);
+      }
+    }
+    if (config.hoverFollower !== undefined) {
+      if (config.hoverFollower) this.createHoverFollower();
+      else this.removeHoverFollower();
+    }
+    if (config.glass !== undefined) {
+      this.syncGlassEngine();
+    }
+  }
+
+  /** Get indicator element (to inspect or style) */
   getIndicator(): HTMLElement {
     return this.indicator;
   }
 
+  private applyIndicator(withStretch: boolean): void {
+    const out = computeBoundedJellyBox({
+      rawX: this.xSpring.value,
+      rawY: this.ySpring.value,
+      width: Math.max(1, this.targetW),
+      height: Math.max(1, this.targetH),
+      scaleX: this.wScaleSpring.value,
+      scaleY: this.hScaleSpring.value,
+      vx: withStretch ? this.xSpring.velocity : 0,
+      vy: withStretch ? this.ySpring.velocity : 0,
+      minX: this.bounds.minX,
+      maxX: this.bounds.maxX,
+      minY: this.bounds.minY,
+      maxY: this.bounds.maxY,
+      stretch: withStretch ? (this.cfg.stretch ?? 0.18) : 0,
+      maxWallBulge: 1.09,
+    });
+
+    this.lastVisual = {
+      x: out.visualLeft,
+      y: out.visualTop,
+      w: out.visualRight - out.visualLeft,
+      h: out.visualBottom - out.visualTop,
+    };
+
+    this.indicator.style.transform = `translate3d(${out.x.toFixed(2)}px, ${out.y.toFixed(2)}px, 0) scale(${out.scaleX.toFixed(4)}, ${out.scaleY.toFixed(4)})`;
+  }
+
   private startAnimation(): void {
-    if (this.animId !== null) return;
-    
+    if (this.animId !== null || this.destroyed) return;
+
     this.animId = this.scheduler.schedule((now) => {
-      const posActive = this.spring.tick(now);
-      const widthActive = this.widthSpring.tick(now);
-      
-      this.indicator.style.transform = `translateX(${this.spring.value}px)`;
-      this.indicator.style.width = `${this.widthSpring.value}px`;
-      
-      const active = posActive || widthActive;
-      if (!active) this.animId = null;
+      const a = this.xSpring.tick(now);
+      const b = this.ySpring.tick(now);
+      const c = this.wScaleSpring.tick(now);
+      const d = this.hScaleSpring.tick(now);
+      const active = a || b || c || d;
+
+      this.applyIndicator(active);
+
+      if (!active) {
+        this.animId = null;
+      }
       return active;
     });
   }
 
   destroy(): void {
+    this.destroyed = true;
     if (this.animId !== null) {
       this.scheduler.cancel(this.animId);
+      this.animId = null;
     }
+    this.resizeObs?.disconnect();
+    this.resizeObs = null;
+    this.removeHoverFollower();
+    this.glassEngine?.destroy();
+    this.glassEngine = null;
     this.indicator.remove();
   }
 }

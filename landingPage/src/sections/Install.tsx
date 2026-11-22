@@ -1,133 +1,120 @@
+import { CardGlass } from '../components/CardGlass';
 import { useState } from 'react';
-import { CodeBlock } from '../components/CodeBlock';
+import { LiquidGlassButton, LiquidSegmented, LiquidSwitcher } from 'quick-liquid/react';
+import { CodeBlock, CopyButton } from '../components/CodeBlock';
 
-const MANAGERS = [
-  { name: 'npm', cmd: 'npm install quick-liquid' },
-  { name: 'pnpm', cmd: 'pnpm add quick-liquid' },
-  { name: 'yarn', cmd: 'yarn add quick-liquid' },
-  { name: 'bun', cmd: 'bun add quick-liquid' },
-] as const;
+const COMMANDS = {
+  npm: 'npm install quick-liquid',
+  pnpm: 'pnpm add quick-liquid',
+  yarn: 'yarn add quick-liquid',
+  bun: 'bun add quick-liquid',
+} as const;
 
-const REACT_SNIPPET = `import { LiquidGlass } from 'quick-liquid/react';
+type Manager = keyof typeof COMMANDS;
+const MANAGER_KEYS = Object.keys(COMMANDS) as Manager[];
+const MANAGER_OPTIONS = MANAGER_KEYS.map(value => ({ value, label: value }));
 
-function Header() {
+const EXAMPLES = {
+  React: {
+    file: 'GlassCard.tsx',
+    lang: 'tsx',
+    code: `import { LiquidGlass } from 'quick-liquid/react';
+
+export function GlassCard() {
   return (
     <LiquidGlass
       config={{
-        blur: 16,
-        refractionStrength: 24,
-        chromaticAberration: 0.1,
-        dynamicLighting: true,
+        material: 'clear',
+        refractionStrength: 32,
+        chromaticAberration: 0.24,
       }}
-      liquidPress   // scale + bounce on click
-      animateIn={200} // spring in after 200ms
+      liquidPress
     >
-      <nav>
-        <span>Brand</span>
-        <button>Dashboard</button>
-      </nav>
+      <div className="card">Hello, glass.</div>
     </LiquidGlass>
   );
-}`;
+}`,
+  },
+  'Vanilla JS': {
+    file: 'main.js',
+    lang: 'ts',
+    code: `import { LiquidGlassEngine } from 'quick-liquid';
 
-const VANILLA_SNIPPET = `import { LiquidGlassEngine } from 'quick-liquid';
+const card = document.querySelector('.card');
 
-const el = document.querySelector('.glass-card');
-const engine = new LiquidGlassEngine(el, {
-  blur: 20,
-  saturation: 1.5,
-  refractionStrength: 30,
-  dynamicLighting: true,
-});
+if (card) {
+  const glass = new LiquidGlassEngine(card, {
+    material: 'clear',
+    refractionStrength: 32,
+    chromaticAberration: 0.24,
+  });
 
-// Automatic liquid press physics
-engine.enableLiquidPress({ scale: 0.92, squish: 0.03 });`;
+  glass.enableLiquidPress();
+}`,
+  },
+} as const;
+
+type ExampleKey = keyof typeof EXAMPLES;
+const EXAMPLE_KEYS = Object.keys(EXAMPLES) as ExampleKey[];
+const EXAMPLE_OPTIONS = EXAMPLE_KEYS.map(value => ({ value, label: value }));
 
 export function Install() {
-  const [mgr, setMgr] = useState(0);
-  const [tab, setTab] = useState<'react' | 'vanilla'>('react');
+  const [example, setExample] = useState<ExampleKey>('React');
+  const [exampleDir, setExampleDir] = useState<-1 | 1>(1);
+  const [manager, setManager] = useState<Manager>('npm');
+  const [managerDir, setManagerDir] = useState<-1 | 1>(1);
+  const { file, lang, code } = EXAMPLES[example];
+
+  function selectManager(next: Manager) {
+    setManagerDir(MANAGER_KEYS.indexOf(next) >= MANAGER_KEYS.indexOf(manager) ? 1 : -1);
+    setManager(next);
+  }
+
+  function selectExample(next: ExampleKey) {
+    setExampleDir(EXAMPLE_KEYS.indexOf(next) >= EXAMPLE_KEYS.indexOf(example) ? 1 : -1);
+    setExample(next);
+  }
 
   return (
-    <section className="section" id="install">
-      <div className="section-head">
-        <span className="section-kicker">get started</span>
-        <h2 className="display">
-          Install it, wrap an element, tune the feel.
-        </h2>
+    <section id="install" className="site-width home-section home-install" aria-labelledby="install-title">
+      <div className="home-install__intro">
+        <h2 id="install-title">Install QuickLiquid</h2>
         <p>
-          Zero runtime dependencies. React 18+ is an optional peer dependency; the core engine is
-          plain TypeScript and works on any element.
+          Precomputed optical maps and spring physics for React or vanilla JavaScript—install once and wrap any surface.
         </p>
+        <LiquidSegmented
+          options={MANAGER_OPTIONS}
+          value={manager}
+          onChange={selectManager}
+          glass
+          ariaLabel="Package manager"
+          className="home-install__managers"
+        />
+        <div className="home-command glass-pane">
+          <CardGlass />
+          <span aria-hidden>$</span>
+          <LiquidSwitcher activeKey={manager} direction={managerDir} className="home-command__code">
+            <code>{COMMANDS[manager]}</code>
+          </LiquidSwitcher>
+          <CopyButton key={manager} text={COMMANDS[manager]} className="glass-button" label="Copy install command" />
+        </div>
+        <LiquidGlassButton className="glass-button home-install__docs" href="/docs/">
+          Explore the API
+        </LiquidGlassButton>
       </div>
-
-      <div className="install-cols">
-        <div className="install-col">
-          <div className="install-card-head">
-            <h3>Command</h3>
-            <p>Choose the package manager you ship with.</p>
-          </div>
-          <div className="tab-row" role="tablist" aria-label="Package manager">
-            {MANAGERS.map((m, i) => (
-              <button
-                key={m.name}
-                role="tab"
-                aria-selected={mgr === i}
-                className={`tab-chip${mgr === i ? ' is-active' : ''}`}
-                onClick={() => setMgr(i)}
-                type="button"
-              >
-                {m.name}
-              </button>
-            ))}
-          </div>
-          <CodeBlock code={MANAGERS[mgr].cmd} lang="bash" title="terminal" compact />
-
-          <ol className="install-steps">
-            <li>
-              <b>Install</b> the package. <code>dist</code> ships ESM, CJS and types.
-            </li>
-            <li>
-              <b>Wrap</b> any element in <code>&lt;LiquidGlass&gt;</code> (or attach{' '}
-              <code>LiquidGlassEngine</code>).
-            </li>
-            <li>
-              <b>Tune</b> the physics in the <a href="/playground/">playground</a> and paste the
-              config back into your app.
-            </li>
-          </ol>
-        </div>
-
-        <div className="install-col">
-          <div className="install-card-head">
-            <h3>Starter code</h3>
-            <p>Same glass engine, React wrapper or direct DOM attach.</p>
-          </div>
-          <div className="tab-row" role="tablist" aria-label="Framework">
-            <button
-              role="tab"
-              aria-selected={tab === 'react'}
-              className={`tab-chip${tab === 'react' ? ' is-active' : ''}`}
-              onClick={() => setTab('react')}
-              type="button"
-            >
-              React
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === 'vanilla'}
-              className={`tab-chip${tab === 'vanilla' ? ' is-active' : ''}`}
-              onClick={() => setTab('vanilla')}
-              type="button"
-            >
-              Vanilla JS
-            </button>
-          </div>
-          {tab === 'react' ? (
-            <CodeBlock code={REACT_SNIPPET} lang="tsx" title="Header.tsx" />
-          ) : (
-            <CodeBlock code={VANILLA_SNIPPET} lang="ts" title="main.ts" />
-          )}
-        </div>
+      <div className="home-example glass-pane">
+        <CardGlass />
+        <LiquidSegmented
+          options={EXAMPLE_OPTIONS}
+          value={example}
+          onChange={selectExample}
+          glass
+          ariaLabel="Code example language"
+          className="home-example__tabs"
+        />
+        <LiquidSwitcher activeKey={example} direction={exampleDir}>
+          <CodeBlock key={example} code={code} title={file} lang={lang} />
+        </LiquidSwitcher>
       </div>
     </section>
   );

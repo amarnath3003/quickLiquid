@@ -112,7 +112,7 @@ const DraggableCapsule = ({ label, material, initialPos, isCircle = false }: { l
   const configOverrides = material === 'custom' 
     ? { borderRadius: 999, blur: 24, tintOpacity: 0.2, refractionStrength: 10, thickness: 15, bezelWidth: 15, appearance: 'dark' as const }
     : material === 'magnifier'
-    ? { borderRadius: 999, blur: 0, refractionStrength: 20, chromaticAberration: 0.5, thickness: 20, bezelWidth: 60, tintOpacity: 0, specularStrength: 0.05, edgeHighlight: 0.2, appearance: 'light' as const }
+    ? { quality: 'extreme' as const, magnification: 2, borderRadius: 999, blur: 0, refractionStrength: 12, chromaticAberration: 0.5, thickness: 20, bezelWidth: 60, tintOpacity: 0, specularStrength: 0.05, edgeHighlight: 0.2, appearance: 'light' as const }
     : { material, appearance: 'dark' as const, borderRadius: 999 };
 
   return (
@@ -219,11 +219,14 @@ function App() {
     const group = new LiquidGroup(container, { mergeDistance: 50, blendRadius: 28, bridgeOpacity: 0.2, resolution: 3 });
     blobs.forEach(blob => group.add(blob));
     liquidGroupRef.current = group;
-    blobs.forEach(blob => {
+    const gestures = Array.from(blobs, blob => {
       const gesture = new LiquidGesture(blob, { pressScale: 1.05, pressSquish: 0, wobbleOnPress: false, releaseSpring: 'bouncy' });
-      gesture.onDrag(() => group.updatePositions());
+      return gesture.onDrag(() => group.updatePositions());
     });
-    return () => group.destroy();
+    return () => {
+      gestures.forEach(gesture => gesture.destroy());
+      group.destroy();
+    };
   }, []);
 
   useEffect(() => {
@@ -417,9 +420,7 @@ function App() {
           <p>Drag the glass blobs close together.</p>
           <div className="merge-container" ref={mergeContainerRef}>
             {['A', 'B', 'C'].map(l => (
-              <LiquidGlass key={l} config={getConfig({ borderRadius: 999 })} className="merge-blob" liquidPress>
-                <span>{l}</span>
-              </LiquidGlass>
+              <div key={l} className="merge-blob"><span>{l}</span></div>
             ))}
           </div>
         </div>

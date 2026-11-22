@@ -29,4 +29,33 @@ export type { GestureConfig } from './gestures';
 
 // Multi-element group system
 export { LiquidGroup, LiquidTabBar } from './group';
-export type { LiquidGroupConfig } from './group';
+export type { LiquidGroupConfig, LiquidTabBarConfig } from './group';
+
+// Interactive liquid UI animations
+export {
+  LiquidInteractive,
+  LiquidSwitch,
+  LiquidMorphModal,
+  LiquidPopover,
+  LiquidContentSwap,
+  LiquidScrollTrack,
+  computeFlowRect,
+  computeLiquidDropTransform,
+  computeSwitchStretch,
+  computeBoundedJellyBox,
+} from './interactive';
+export type {
+  DOMRectLike,
+  FlowRectResult,
+  LiquidModalMode,
+  LiquidDropOptions,
+  LiquidDropTransform,
+  StretchScale,
+  JellyBoxInput,
+  JellyBoxOutput,
+  LiquidInteractiveConfig,
+  LiquidSwitchConfig,
+  LiquidMorphModalConfig,
+  LiquidPopoverConfig,
+  LiquidScrollTrackConfig,
+} from './interactive';

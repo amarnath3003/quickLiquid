@@ -1,85 +1,100 @@
-import { LiquidGlass } from 'quick-liquid/react';
+import { CardGlass } from '../components/CardGlass';
+import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { LiquidGlass, LiquidToggle, useLiquidInteractive } from 'quick-liquid/react';
+import { ControlIcon, GlassRange } from '../components/GlassControls';
+import { LightField } from '../components/SiteShell';
+import { FlowExperiment, ZoomExperiment } from './OpticExperiments';
+import './component-gallery.css';
 
-const FEATURES = [
-  {
-    tag: 'Optics',
-    title: 'Refraction from real geometry',
-    body: 'The displacement field is traced through a convex bezel with vector Snell law. Thickness, bezel width and IOR stay physical.',
-  },
-  {
-    tag: 'Color',
-    title: 'Prism edges without extra maps',
-    body: 'RGB refraction shares one displacement map. Clear materials keep exact color sampling; heavy frost can skip the extra samples.',
-  },
-  {
-    tag: 'Light',
-    title: 'Rim light that reads as glass',
-    body: 'Directional highlights rotate from a precomputed light field. A finer rim and restrained reflection preserve the view through the glass.',
-  },
-  {
-    tag: 'Cache',
-    title: 'Optimized where it matters',
-    body: 'LUT reduction, bezel-band iteration, symmetry and refcounted maps keep repeated glass elements cheap.',
-  },
-  {
-    tag: 'Motion',
-    title: 'Droplets that can merge',
-    body: 'Metaball groups let nearby glass blobs bridge and morph, so the interface can behave like a material.',
-  },
-  {
-    tag: 'API',
-    title: 'React-first, vanilla-friendly',
-    body: 'Use the React component for product UI, or attach LiquidGlassEngine to any element in plain JavaScript.',
-  },
-];
+const CONTROL = {
+  appearance: 'dark', borderRadius: 999, bezelWidth: 12, blur: 2, refractionStrength: 18,
+  tintOpacity: 0.14, edgeHighlight: 0.86,
+} as const;
+
+function OpticsDesk() {
+  const [playing, setPlaying] = useState(false);
+  const [contrast, setContrast] = useState(false);
+  const [intensity, setIntensity] = useState(78);
+  const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const playInteractiveRef = useLiquidInteractive<HTMLButtonElement>({
+    pressScale: 0.92,
+    pressSquish: 0.04,
+    hoverLift: 2,
+    hoverScale: 1.05,
+    ripple: true,
+  });
+
+  useEffect(() => {
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    function change(event: MediaQueryListEvent) {
+      setReducedMotion(event.matches);
+      if (event.matches) setPlaying(false);
+    }
+    media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
+
+  return (
+    <section className="optics-desk glass-pane" id="controls" aria-labelledby="optics-desk-title">
+      <CardGlass />
+      <div className="desk-preview" data-playing={playing} data-contrast={contrast}
+        style={{ '--desk-intensity': intensity / 100 } as CSSProperties}>
+        <LightField className="desk-preview__beam" />
+        <LiquidGlass className="desk-reading" config={{
+          appearance: 'dark', borderRadius: 36, blur: 6, bezelWidth: 24, refractionStrength: 29, tintOpacity: 0.15,
+        }}>
+          <div className="desk-reading__content">
+            <span>Light intensity</span>
+            <strong>{intensity}<small>%</small></strong>
+          </div>
+        </LiquidGlass>
+      </div>
+
+      <div className="desk-controls">
+        <div className="desk-controls__head">
+          <h3 id="optics-desk-title">Spectrum console</h3>
+          <div className="desk-transport" role="group" aria-label="Spectrum playback">
+            <LiquidGlass className="desk-icon" config={CONTROL}>
+              <button
+                ref={playInteractiveRef}
+                type="button"
+                aria-label={playing ? 'Pause light motion' : 'Play light motion'}
+                aria-pressed={playing}
+                disabled={reducedMotion}
+                onClick={() => setPlaying(previous => !previous)}
+              >
+                <ControlIcon name={playing ? 'pause' : 'play'} />
+              </button>
+            </LiquidGlass>
+          </div>
+        </div>
+
+        <GlassRange label="Intensity" value={intensity} max={100} valueText={`${intensity}%`} onChange={setIntensity} />
+
+        <div className="desk-controls__row">
+          <span>High contrast</span>
+          <LiquidToggle
+            checked={contrast}
+            onChange={setContrast}
+            label="High contrast"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function Features() {
   return (
-    <section className="section" id="features">
-      <div className="section-head">
-        <span className="section-kicker">why quickliquid</span>
-        <h2 className="display">
-          Built like a material, not a backdrop blur.
-        </h2>
-        <p>
-          The lens, tint, sheen and rim come from one physical model, then get trimmed for the browser.
-        </p>
+    <section className="site-width home-section component-gallery" id="components" aria-labelledby="features-title">
+      <div className="home-section__head">
+        <h2 id="features-title">Try the components</h2>
       </div>
-
-      <div className="features-wrap">
-        <div className="features-glow" aria-hidden>
-          <i className="fg1" />
-          <i className="fg2" />
-          <i className="fg3" />
-        </div>
-        <div className="features-grid">
-          {FEATURES.map((f, i) => (
-            <LiquidGlass
-              key={f.tag}
-              className={`feature-card feature-card--${i}`}
-              animateIn={i * 80}
-              config={{
-                material: 'thin',
-                appearance: 'dark',
-                borderRadius: 24,
-                tintOpacity: 0.09,
-                specularStrength: 0.2,
-                edgeHighlight: 0.55,
-              }}
-            >
-              <article className="feature-card__body">
-                <span className="feature-card__visual" aria-hidden>
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <span className="feature-card__tag">{f.tag}</span>
-                <h3>{f.title}</h3>
-                <p>{f.body}</p>
-              </article>
-            </LiquidGlass>
-          ))}
-        </div>
+      <OpticsDesk />
+      <div className="component-gallery__experiments">
+        <FlowExperiment />
+        <ZoomExperiment />
       </div>
     </section>
   );

@@ -1,4 +1,5 @@
 import { LiquidGlass } from 'quick-liquid/react';
+import { LightField } from './SiteShell';
 
 /**
  * Motion behind glass: three rows of display type scroll in alternating
@@ -7,62 +8,62 @@ import { LiquidGlass } from 'quick-liquid/react';
  * keeps refracting whatever moving type it happens to be over as it sweeps.
  */
 const ROWS = [
-  { words: ['refraction', "snell's law", 'fresnel', 'dispersion', 'caustics'], dir: 'left', dur: 34 },
-  { words: ['surface tension', 'chromatic', 'lensing', 'index of refraction'], dir: 'right', dur: 42 },
-  { words: ['spring physics', 'squash and stretch', 'inertia', 'morph', 'jiggle'], dir: 'left', dur: 28 },
-];
+  { words: ['refraction', "snell's law", 'precomputed lut', 'cached maps', 'fresnel'], dir: 'left', dur: 34 },
+  { words: ['surface tension', 'zero overhead', 'lensing', 'chromatic'], dir: 'right', dur: 42 },
+  { words: ['spring physics', '60fps optics', 'inertia', 'morph', 'jiggle'], dir: 'left', dur: 28 },
+] as const;
+
+const LOUPE_CONFIG = {
+  quality: 'ultra',
+  blur: 0,
+  refractionStrength: 24,
+  thickness: 26,
+  bezelWidth: 36,
+  ior: 1.5,
+  magnification: 1.08,
+  tint: '122, 166, 214',
+  tintOpacity: 0.055,
+  saturation: 1.18,
+  chromaticAberration: 0.14,
+  appearance: 'dark',
+  lightAngle: -32,
+  edgeHighlight: 0.94,
+  specularStrength: 0.34,
+  fresnelPower: 2.8,
+  cursorTracking: true,
+  borderRadius: 96,
+  elevation: 0.9,
+} as const;
 
 export function GlassMarquee() {
   return (
-    <section className="motion" aria-label="Motion behind glass">
-      <div className="motion-head">
-        <span className="motion-head__label">live refraction sample</span>
-        <span className="motion-head__note">moving type under a real lens</span>
+    <section id="motion" className="site-width motion-stage" aria-label="Live refraction sample">
+      <div className="motion-bg" aria-hidden="true">
+        <LightField className="motion-rays" />
+        <div className="motion-rows">
+          {ROWS.map((row, r) => {
+            // Tripled so a -33.33% shift is exactly one set for a seamless loop.
+            const line = [...row.words, ...row.words, ...row.words];
+            return (
+              <div
+                key={r}
+                className={`motion-row motion-row--${row.dir}`}
+                style={{ animationDuration: `${row.dur}s` }}
+              >
+                {line.map((w, i) => (
+                  <span key={i}>
+                    {w}
+                    <i>/</i>
+                  </span>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="motion-stage">
-        <div className="motion-bg" aria-hidden>
-          <i className="motion-beam" />
-          <div className="motion-rows">
-            {ROWS.map((row, r) => {
-              // Tripled so a -33.33% shift is exactly one set for a seamless loop.
-              const line = [...row.words, ...row.words, ...row.words];
-              return (
-                <div
-                  key={r}
-                  className={`motion-row motion-row--${row.dir}`}
-                  style={{ animationDuration: `${row.dur}s` }}
-                >
-                  {line.map((w, i) => (
-                    <span key={i}>
-                      {w}
-                      <i>/</i>
-                    </span>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-          <i className="motion-grid" />
-        </div>
 
-        <div className="motion-loupe" aria-hidden>
-          <LiquidGlass
-            className="motion-lens"
-            animateIn={false}
-            config={{
-              blur: 0.5,
-              refractionStrength: 34,
-              thickness: 32,
-              bezelWidth: 15,
-              tintOpacity: 0.02,
-              chromaticAberration: 0.55,
-              appearance: 'dark',
-              specularStrength: 0.08,
-              borderRadius: 30,
-              elevation: 1.15,
-            }}
-          />
-        </div>
+      <div className="motion-loupe" aria-hidden="true">
+        <LiquidGlass className="motion-lens" animateIn={false} config={LOUPE_CONFIG} />
       </div>
     </section>
   );

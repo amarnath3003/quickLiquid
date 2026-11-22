@@ -7,6 +7,7 @@
 
 // Core glass engine
 export { LiquidGlassEngine, DEFAULT_CONFIG, MATERIAL_PRESETS } from './core/engine';
+export { QUALITY_PRESETS, type GlassQuality } from './core/config';
 export type { LiquidGlassConfig } from './core/engine';
 
 // Liquid animations
@@ -31,6 +32,17 @@ export {
   // Group system
   LiquidGroup,
   LiquidTabBar,
+  // Interactive liquid animations
+  LiquidInteractive,
+  LiquidSwitch,
+  LiquidMorphModal,
+  LiquidPopover,
+  LiquidContentSwap,
+  LiquidScrollTrack,
+  computeFlowRect,
+  computeLiquidDropTransform,
+  computeSwitchStretch,
+  computeBoundedJellyBox,
 } from './animations';
 
 export type {
@@ -43,4 +55,18 @@ export type {
   LiquidTransitionConfig,
   GestureConfig,
   LiquidGroupConfig,
+  LiquidTabBarConfig,
+  DOMRectLike,
+  FlowRectResult,
+  LiquidModalMode,
+  LiquidDropOptions,
+  LiquidDropTransform,
+  StretchScale,
+  JellyBoxInput,
+  JellyBoxOutput,
+  LiquidInteractiveConfig,
+  LiquidSwitchConfig,
+  LiquidMorphModalConfig,
+  LiquidPopoverConfig,
+  LiquidScrollTrackConfig,
 } from './animations';

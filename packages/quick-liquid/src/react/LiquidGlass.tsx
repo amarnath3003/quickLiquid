@@ -6,6 +6,8 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   as?: keyof React.JSX.IntrinsicElements;
   active?: boolean;
   children?: React.ReactNode;
+  /** A lens-aligned scene rendered through the engine's SVG filter. */
+  opticalSource?: React.ReactNode;
   /** Enable liquid press animation (scale + bounce on press) */
   liquidPress?: boolean | { scale?: number; squish?: number };
   /** Animate in on mount (spring scale-up) */
@@ -27,10 +29,11 @@ export interface LiquidGlassRef {
 }
 
 export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
-  ({ config = {}, as: Component = 'div', active = true, children, liquidPress, animateIn: animateInProp, jiggle: jiggleProp, onPerformanceUpdate, style, ...props }, ref) => {
+  ({ config = {}, as: Component = 'div', active = true, children, opticalSource, liquidPress, animateIn: animateInProp, jiggle: jiggleProp, onPerformanceUpdate, style, ...props }, ref) => {
     const elementRef = useRef<HTMLDivElement>(null);
     const engineRef = useRef<LiquidGlassEngine | null>(null);
     
+    const hasSource = opticalSource != null;
     const configStr = useMemo(() => JSON.stringify(config), [config]);
     
     // Engine initialization and destruction
@@ -57,7 +60,7 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
         engineRef.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [active, Component]);
+    }, [active, Component, hasSource]);
     
     // Config updates
     useEffect(() => {
@@ -104,7 +107,10 @@ export const LiquidGlass = forwardRef<LiquidGlassRef, LiquidGlassProps>(
         style,
         ...props,
       },
-      // Wrap children in a content layer that sits above ALL effect layers (z:0-6)
+      active && hasSource && React.createElement('div', {
+        key: 'source', className: 'ql-source', 'aria-hidden': true,
+        style: { position: 'absolute', inset: 0, pointerEvents: 'none' },
+      }, opticalSource),
       React.createElement('div', {
         style: { position: 'relative', zIndex: 10 },
         className: 'ql-content',

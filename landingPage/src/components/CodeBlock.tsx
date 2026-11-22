@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useLiquidInteractive } from 'quick-liquid/react';
 
 /** One-pass tokenizer to React spans. Good enough for our fixed snippets. */
 const JS_TOKEN =
@@ -35,30 +36,65 @@ export interface CodeBlockProps {
   compact?: boolean;
 }
 
-export function useCopy(): [boolean, (text: string) => void] {
-  const [copied, setCopied] = useState(false);
-  const copy = useCallback((text: string) => {
-    const done = () => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    };
+async function copyText(text: string) {
+  try {
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(done);
-    } else {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      done();
+      await navigator.clipboard.writeText(text);
+      return true;
     }
-  }, []);
-  return [copied, copy];
+  } catch {
+    // Allow the selection-based fallback if clipboard access is denied.
+  }
+
+  const previous = document.activeElement;
+  const selection = document.createElement('textarea');
+  selection.value = text;
+  selection.readOnly = true;
+  selection.style.cssText = 'position:fixed; opacity:0; top:0; left:0';
+  document.body.append(selection);
+  selection.select();
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    selection.remove();
+    if (previous instanceof HTMLElement) previous.focus({ preventScroll: true });
+  }
+}
+
+export function CopyButton({ text, className, label = 'Copy code' }: { text: string; className?: string; label?: string }) {
+  const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const interactiveRef = useLiquidInteractive<HTMLButtonElement>({
+    pressScale: 0.94,
+    pressSquish: 0.04,
+    hoverLift: 2,
+    hoverScale: 1.025,
+    ripple: true,
+  });
+
+  useEffect(() => {
+    if (status === 'idle') return;
+    const timer = window.setTimeout(() => setStatus('idle'), status === 'copied' ? 1600 : 4500);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  return (
+    <>
+      <button ref={interactiveRef} className={className} type="button" aria-label={label} onClick={async () => {
+        setStatus(await copyText(text) ? 'copied' : 'failed');
+      }}>
+        {status === 'copied' ? 'Copied' : status === 'failed' ? 'Copy failed' : 'Copy'}
+      </button>
+      <span className="site-sr" role="status">
+        {status === 'copied' && 'Copied to clipboard'}
+        {status === 'failed' && 'Clipboard access failed. Select the text to copy it manually.'}
+      </span>
+    </>
+  );
 }
 
 export function CodeBlock({ code, lang = 'ts', title, compact }: CodeBlockProps) {
-  const [copied, copy] = useCopy();
   return (
     <div className={`code-block${compact ? ' code-block--compact' : ''}`}>
       <div className="code-block__bar">
@@ -66,9 +102,7 @@ export function CodeBlock({ code, lang = 'ts', title, compact }: CodeBlockProps)
           <i /> <i /> <i />
         </span>
         <span className="code-block__title">{title ?? lang}</span>
-        <button className="code-block__copy" onClick={() => copy(code)} type="button">
-          {copied ? 'Copied' : 'Copy'}
-        </button>
+        <CopyButton className="code-block__copy" text={code} />
       </div>
       <pre className="code-block__pre">
         <code>{highlight(code, lang)}</code>

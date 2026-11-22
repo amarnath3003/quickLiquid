@@ -27,8 +27,10 @@ export function refractionProfile(thickness: number, bezel: number, ior: number)
     const sinI = slope * cosI;
     const k = eta * cosI - Math.sqrt(Math.max(0, 1 - eta * eta * sinI * sinI));
     const displacement = root * Math.abs(k * sinI / (-eta + k * cosI));
-    lut[i] = displacement;
-    peak = Math.max(peak, displacement);
+    // Ease the inner shoulder to zero slope where the bezel meets the slab.
+    const shoulder = Math.min(1, (1 - s) * 2);
+    lut[i] = displacement * shoulder * (2 - shoulder);
+    peak = Math.max(peak, lut[i]);
   }
   if (peak > 0) for (let i = 1; i < PROFILE_SAMPLES; i++) lut[i] /= peak;
   if (profiles.size >= 32) profiles.delete(profiles.keys().next().value!);
@@ -40,6 +42,7 @@ export interface MapGeometry {
   width: number; height: number; radius: number;
   bezel: number; thickness: number; ior: number;
   /** Content resolution; the neutral guard band is additional. */
+  magnification?: number; strength?: number;
   mapWidth: number; mapHeight: number; padding: number;
 }
 
@@ -58,6 +61,9 @@ export function rasterizeLens(g: MapGeometry) {
   const profile = refractionProfile(g.thickness, bezel, g.ior);
   const band = Math.max(radius, bezel) + 1 / Math.min(sx, sy);
   const qw = Math.ceil(mw / 2), qh = Math.ceil(mh / 2);
+  const zoom = 1 - 1 / (g.magnification ?? 1);
+  const strength = g.strength ?? 1;
+  const range = strength + Math.max(w, h) * zoom / 2 || 1;
   let pixelsComputed = 0;
   const put = (x: number, y: number, dx: number, dy: number) => {
     const i = ((y + padY) * bw + x + padX) * 4;
@@ -65,7 +71,7 @@ export function rasterizeLens(g: MapGeometry) {
   };
   for (let y = 0; y < qh; y++) {
     const ey = (y + 0.5) / sy;
-    const limit = ey <= bezel ? qw : Math.min(qw, Math.ceil((ey <= band ? band : bezel + 1 / sx) * sx));
+    const limit = zoom || ey <= bezel ? qw : Math.min(qw, Math.ceil((ey <= band ? band : bezel + 1 / sx) * sx));
     for (let x = 0; x < limit; x++) {
       const ex = (x + 0.5) / sx;
       const qx = radius - ex, qy = radius - ey;
@@ -79,14 +85,16 @@ export function rasterizeLens(g: MapGeometry) {
       } else {
         distance = ey; nx = 0; ny = 1;
       }
-      if (distance <= 0 || distance >= bezel) continue;
+      if (distance <= 0 || (!zoom && distance >= bezel)) continue;
       pixelsComputed++;
-      const f = distance / bezel * PROFILE_SAMPLES;
+      const t = Math.min(1, distance / bezel);
+      const f = t * PROFILE_SAMPLES;
       const i = Math.min(PROFILE_SAMPLES - 1, Math.floor(f));
       const displacement = profile[i] + (profile[i + 1] - profile[i]) * (f - i);
       // Quantize once then negate: mirror symmetry is exact, including odd sizes.
-      const dx = x === mw - 1 - x ? 0 : Math.round(nx * displacement * 127);
-      const dy = y === mh - 1 - y ? 0 : Math.round(ny * displacement * 127);
+      const interior = zoom * t * t * (3 - 2 * t);
+      const dx = x === mw - 1 - x ? 0 : Math.round((nx * displacement * strength + (w / 2 - ex) * interior) * 127 / range);
+      const dy = y === mh - 1 - y ? 0 : Math.round((ny * displacement * strength + (h / 2 - ey) * interior) * 127 / range);
       put(x, y, dx, dy);
       put(mw - 1 - x, y, -dx, dy);
       put(x, mh - 1 - y, dx, -dy);
@@ -100,8 +108,8 @@ export function rasterizeLens(g: MapGeometry) {
  * No approximation/extrapolation of color channels on the high quality path.
  */
 export function usesDispersion(strength: number, chroma: number, blur: number, quality: string, mode = 'auto'): boolean {
-  if (chroma <= 0.01 || quality === 'low') return false;
-  return mode === 'exact' || 0.24 * chroma * strength >= 0.2 * blur;
+  if (chroma <= 0 || (quality !== 'extreme' && chroma <= 0.01) || quality === 'low') return false;
+  return quality === 'extreme' || mode === 'exact' || 0.24 * chroma * strength >= 0.2 * blur;
 }
 
 export function filterPadding(blur: number): number {
