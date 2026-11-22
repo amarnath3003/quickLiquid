@@ -40,44 +40,35 @@
 
 ## Visual Showcase
 
-<table>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <a href="assets/showcase-optics.png"><img src="assets/showcase-optics.png" alt="Snell refraction, chromatic dispersion, and 2.2x optical zoom" width="100%" /></a><br />
-      <b>Optics, Dispersion &amp; 1×–3× Zoom</b><br />
-      <sub>Vector Snell bezels, shared-map RGB prism rims, and optical magnification.</sub>
-    </td>
-    <td width="50%" align="center" valign="top">
-      <a href="assets/showcase-materials.png"><img src="assets/showcase-materials.png" alt="All six material presets: clear, thin, regular, thick, ultra, and adaptive" width="100%" /></a><br />
-      <b>6 Curated Material Presets</b><br />
-      <sub><code>clear</code>, <code>thin</code>, <code>regular</code>, <code>thick</code>, <code>ultra</code>, and <code>adaptive</code> out of the box.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <a href="assets/showcase-quality.png"><img src="assets/showcase-quality.png" alt="Five render quality tiers from low 0.5x to extreme 3x" width="100%" /></a><br />
-      <b>5 Quality Tiers (<code>QUALITY_PRESETS</code>)</b><br />
-      <sub>Scale from lightweight <code>0.5×</code> controls up to <code>3×</code> supersampled hero optics.</sub>
-    </td>
-    <td width="50%" align="center" valign="top">
-      <a href="assets/showcase-controls.png"><img src="assets/showcase-controls.png" alt="React UI primitives: navbar, Spectrum console, LiquidToggle, and command palette" width="100%" /></a><br />
-      <b>React UI Primitives</b><br />
-      <sub><code>LiquidGlassButton</code>, <code>LiquidSegmented</code>, <code>LiquidToggle</code>, <code>LiquidSwitcher</code>, and <code>useLiquidFlow</code>.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <a href="assets/showcase-motion.gif"><img src="assets/showcase-motion.gif" alt="Spring-driven segmented pill, liquid toggle stretch, and ripple button" width="100%" /></a><br />
-      <b>Analytical Spring Physics</b><br />
-      <sub>Bounded jelly pills, droplet switch stretch, water ripples, and scroll tracking.</sub>
-    </td>
-    <td width="50%" align="center" valign="top">
-      <a href="assets/showcase-droplets.gif"><img src="assets/showcase-droplets.gif" alt="SDF metaball droplet merging between two refractive glass drops" width="100%" /></a><br />
-      <b>SDF Metaball Merging (<code>LiquidGroup</code>)</b><br />
-      <sub>Continuous smooth-min glass bridges and specular rims as droplets meet.</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <a href="assets/showcase-optics.png"><img src="assets/showcase-optics.png" alt="Snell refraction, chromatic dispersion, and 2.2x optical zoom" width="820" /></a><br />
+  <b>Optics, Dispersion &amp; 1×–3× Zoom</b> &mdash; Vector Snell bezels, shared-map RGB prism rims, and optical magnification.
+</p>
+
+<p align="center">
+  <a href="assets/showcase-materials.png"><img src="assets/showcase-materials.png" alt="All six material presets: clear, thin, regular, thick, ultra, and adaptive" width="820" /></a><br />
+  <b>6 Curated Material Presets</b> &mdash; <code>clear</code>, <code>thin</code>, <code>regular</code>, <code>thick</code>, <code>ultra</code>, and <code>adaptive</code> tuned out of the box.
+</p>
+
+<p align="center">
+  <a href="assets/showcase-quality.png"><img src="assets/showcase-quality.png" alt="Five render quality tiers from low 0.5x to extreme 3x" width="820" /></a><br />
+  <b>5 Quality Tiers (<code>QUALITY_PRESETS</code>)</b> &mdash; Scale from lightweight <code>0.5×</code> controls up to <code>3×</code> supersampled hero optics.
+</p>
+
+<p align="center">
+  <a href="assets/showcase-controls.png"><img src="assets/showcase-controls.png" alt="React UI primitives: navbar, Spectrum console, LiquidToggle, and command palette" width="820" /></a><br />
+  <b>React UI Primitives</b> &mdash; <code>LiquidGlassButton</code>, <code>LiquidSegmented</code>, <code>LiquidToggle</code>, <code>LiquidSwitcher</code>, and <code>useLiquidFlow</code>.
+</p>
+
+<p align="center">
+  <a href="assets/showcase-motion.gif"><img src="assets/showcase-motion.gif" alt="Spring-driven segmented pill, liquid toggle stretch, and ripple button" width="820" /></a><br />
+  <b>Analytical Spring Physics</b> &mdash; Bounded jelly pills, droplet switch stretch, water ripples, and scroll tracking.
+</p>
+
+<p align="center">
+  <a href="assets/showcase-droplets.gif"><img src="assets/showcase-droplets.gif" alt="SDF metaball droplet merging between two refractive glass drops" width="820" /></a><br />
+  <b>SDF Metaball Merging (<code>LiquidGroup</code>)</b> &mdash; Continuous smooth-min glass bridges and specular rims as droplets meet.
+</p>
 
 ---
 
