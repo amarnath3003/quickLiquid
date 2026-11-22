@@ -1,33 +1,145 @@
-<svg width="760" height="220" viewBox="0 0 760 220" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">QuickLiquid logo</title>
-  <desc id="desc">A refractive glass droplet next to the QuickLiquid wordmark.</desc>
+<svg width="840" height="230" viewBox="0 0 840 230" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">QuickLiquid banner</title>
+  <desc id="desc">Iridescent liquid glass emblem beside the QuickLiquid wordmark over dark spectral glass.</desc>
   <defs>
-    <linearGradient id="bg" x1="40" y1="20" x2="720" y2="200" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#E8F7FF"/>
-      <stop offset="0.48" stop-color="#F7FBFF"/>
-      <stop offset="1" stop-color="#EAF2FF"/>
+    <clipPath id="panel-clip">
+      <rect x="0.5" y="0.5" width="839" height="229" rx="28" />
+    </clipPath>
+
+    <linearGradient id="panel-bg" x1="0" y1="0" x2="840" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#070910" />
+      <stop offset="0.52" stop-color="#0B101D" />
+      <stop offset="1" stop-color="#111725" />
     </linearGradient>
-    <linearGradient id="drop" x1="83" y1="28" x2="174" y2="184" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFFFFF" stop-opacity="0.95"/>
-      <stop offset="0.4" stop-color="#DDF6FF" stop-opacity="0.72"/>
-      <stop offset="1" stop-color="#9FD6FF" stop-opacity="0.54"/>
-    </linearGradient>
-    <radialGradient id="spec" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(94 72) rotate(49) scale(60 24)">
-      <stop stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+
+    <radialGradient id="aura-left" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(150 116) scale(210 150)">
+      <stop stop-color="#758CFF" stop-opacity="0.28" />
+      <stop offset="0.55" stop-color="#7970CF" stop-opacity="0.1" />
+      <stop offset="1" stop-color="#070910" stop-opacity="0" />
     </radialGradient>
-    <filter id="shadow" x="20" y="0" width="200" height="220" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="20" stdDeviation="18" flood-color="#0062A8" flood-opacity="0.18"/>
+
+    <radialGradient id="aura-right" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(715 44) rotate(155) scale(340 165)">
+      <stop stop-color="#9299FF" stop-opacity="0.24" />
+      <stop offset="0.5" stop-color="#202448" stop-opacity="0.22" />
+      <stop offset="1" stop-color="#070910" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="glass-pane-fill" x1="16" y1="10" x2="810" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#232C43" stop-opacity="0.45" />
+      <stop offset="0.55" stop-color="#101423" stop-opacity="0.2" />
+      <stop offset="1" stop-color="#111629" stop-opacity="0.48" />
+    </linearGradient>
+
+    <linearGradient id="top-edge" x1="90" y1="0" x2="750" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#96CFFF" stop-opacity="0" />
+      <stop offset="0.24" stop-color="#96CFFF" stop-opacity="0.6" />
+      <stop offset="0.62" stop-color="#C8B5FF" stop-opacity="0.72" />
+      <stop offset="0.82" stop-color="#FFB1BD" stop-opacity="0.42" />
+      <stop offset="1" stop-color="#FFB1BD" stop-opacity="0" />
+    </linearGradient>
+
+    <linearGradient id="pebble-fill" x1="4" y1="4" x2="27" y2="29" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8FAFF" />
+      <stop offset="0.29" stop-color="#7970CF" />
+      <stop offset="0.59" stop-color="#211934" />
+      <stop offset="0.81" stop-color="#C997F6" />
+      <stop offset="1" stop-color="#F4B6A3" />
+    </linearGradient>
+
+    <linearGradient id="pebble-rim" x1="12" y1="2" x2="21" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" />
+      <stop offset="0.47" stop-color="#A7A0E8" />
+      <stop offset="1" stop-color="#FFF0FB" />
+    </linearGradient>
+
+    <radialGradient id="pebble-spec" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(118 78) rotate(32) scale(46 20)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.85" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+
+    <filter id="pebble-glow" x="-45%" y="-45%" width="190%" height="190%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#758CFF" flood-opacity="0.34" />
     </filter>
   </defs>
-  <rect x="0.5" y="0.5" width="759" height="219" rx="44" fill="url(#bg)" stroke="#D7ECFF"/>
-  <g filter="url(#shadow)">
-    <path d="M124 28C124 28 72 86 72 132C72 171.765 95.8055 194 128 194C160.194 194 184 171.765 184 132C184 86 124 28 124 28Z" fill="url(#drop)" stroke="white" stroke-width="3"/>
-    <path d="M91 134C91 106 118 70 126 58C137 75 164 110 164 135C164 160 149 176 128 176C107 176 91 160 91 134Z" stroke="#76C7FF" stroke-opacity="0.45" stroke-width="2"/>
-    <path d="M82 122C93 126 105 127 118 122C136 115 150 116 166 124" stroke="#0EA5E9" stroke-opacity="0.22" stroke-width="12" stroke-linecap="round"/>
-    <ellipse cx="101" cy="72" rx="38" ry="18" transform="rotate(-42 101 72)" fill="url(#spec)"/>
-    <circle cx="155" cy="88" r="7" fill="#FFFFFF" fill-opacity="0.88"/>
+
+  <g clip-path="url(#panel-clip)">
+    <rect x="0" y="0" width="840" height="230" fill="url(#panel-bg)" />
+    <rect x="0" y="0" width="840" height="230" fill="url(#aura-left)" />
+    <rect x="0" y="0" width="840" height="230" fill="url(#aura-right)" />
+
+    <!-- Subtle optical dot matrix -->
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="11" cy="11" r="0.7" fill="#A4B5FF" fill-opacity="0.14" />
+    </pattern>
+    <rect x="0" y="0" width="840" height="230" fill="url(#dots)" />
+
+    <!-- Subtle curved spectral ribbons sweeping across lower-right -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M -40 228 C 190 198, 430 236, 620 144 S 780 56, 890 66" stroke="#FA799B" stroke-width="1.3" stroke-opacity="0.24" />
+      <path d="M -40 234 C 198 205, 436 242, 628 152 S 786 64, 895 74" stroke="#FFA485" stroke-width="1.7" stroke-opacity="0.22" />
+      <path d="M -40 240 C 206 212, 442 248, 636 160 S 792 72, 900 82" stroke="#FFDC91" stroke-width="1.2" stroke-opacity="0.2" />
+      <path d="M -40 246 C 214 219, 448 254, 644 168 S 798 80, 905 90" stroke="#73EDDC" stroke-width="2" stroke-opacity="0.24" />
+      <path d="M -40 252 C 222 226, 454 260, 652 176 S 804 88, 910 98" stroke="#75BDFF" stroke-width="1.4" stroke-opacity="0.26" />
+      <path d="M -40 258 C 230 233, 460 266, 660 184 S 810 96, 915 106" stroke="#9299FF" stroke-width="2.1" stroke-opacity="0.25" />
+      <path d="M -40 264 C 238 240, 466 272, 668 192 S 816 104, 920 114" stroke="#DF9DFE" stroke-width="1.3" stroke-opacity="0.22" />
+    </g>
+
+    <rect x="0" y="0" width="840" height="230" fill="url(#glass-pane-fill)" />
+
+    <!-- Optical sight hairlines near emblem -->
+    <line x1="138" y1="22" x2="138" y2="208" stroke="#9DB8FF" stroke-opacity="0.14" stroke-dasharray="3 4" />
+    <line x1="40" y1="115" x2="236" y2="115" stroke="#9DB8FF" stroke-opacity="0.14" stroke-dasharray="3 4" />
+
+    <!-- Iridescent liquid glass pebble emblem modeled on glass-mark.svg -->
+    <g filter="url(#pebble-glow)">
+      <g transform="translate(52 29) scale(5.38)">
+        <path
+          d="M18 3.5c6.4-1 10.9 2.8 10.6 8.4-.3 6-4.7 13.8-11.1 16.1-6.3 2.3-12.7-.8-13.8-6.9C2.6 14.6 10.2 4.7 18 3.5Z"
+          fill="url(#pebble-fill)"
+          stroke="url(#pebble-rim)"
+          stroke-width="0.95"
+        />
+        <path
+          d="M6.8 22.1c1.6 4.2 6 5.2 9.8 3.7 5.2-2 8.7-7.8 9.4-12.4"
+          stroke="#FFFFFF"
+          stroke-opacity="0.65"
+          stroke-width="0.72"
+          stroke-linecap="round"
+        />
+        <path
+          d="M8.8 10.2c2.1-3.2 5.6-5.2 9.4-5.5"
+          stroke="#FFFFFF"
+          stroke-opacity="0.78"
+          stroke-width="0.85"
+          stroke-linecap="round"
+        />
+      </g>
+    </g>
+    <ellipse cx="118" cy="78" rx="34" ry="15" transform="rotate(-24 118 78)" fill="url(#pebble-spec)" opacity="0.55" />
+
+    <!-- Wordmark & tagline -->
+    <text
+      x="248"
+      y="124"
+      fill="#F4F7FF"
+      font-family="'Outfit', 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+      font-size="68"
+      font-weight="700"
+      letter-spacing="-2"
+    >QuickLiquid</text>
+
+    <text
+      x="252"
+      y="163"
+      fill="#B4C8FF"
+      font-family="'Outfit', 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+      font-size="14"
+      font-weight="600"
+      letter-spacing="2.6"
+    >ULTRA-FAST LIQUID GLASS FOR REACT &amp; THE WEB</text>
   </g>
-  <text x="248" y="132" fill="#06121F" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="70" font-weight="800" letter-spacing="-1">QuickLiquid</text>
-  <text x="251" y="171" fill="#42708F" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="600" letter-spacing="1.8">REFRACTIVE GLASS UI FOR REACT AND THE DOM</text>
+
+  <!-- Outer glass pane border + top prismatic edge glint -->
+  <rect x="0.5" y="0.5" width="839" height="229" rx="28" stroke="#B8CBFF" stroke-opacity="0.22" />
+  <line x1="84" y1="1" x2="756" y2="1" stroke="url(#top-edge)" stroke-width="1.4" />
 </svg>
