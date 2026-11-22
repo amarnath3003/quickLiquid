@@ -1,6 +1,6 @@
 {
   "name": "quick-liquid",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Ultra-optimized Liquid Glass UI framework - Apple's liquid glass effect with minimal compute",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -18,8 +18,14 @@
       }
     },
     "./core": {
-      "import": { "types": "./dist/core/index.d.mts", "default": "./dist/core/index.mjs" },
-      "require": { "types": "./dist/core/index.d.ts", "default": "./dist/core/index.js" }
+      "import": {
+        "types": "./dist/core/index.d.mts",
+        "default": "./dist/core/index.mjs"
+      },
+      "require": {
+        "types": "./dist/core/index.d.ts",
+        "default": "./dist/core/index.js"
+      }
     },
     "./react": {
       "import": {
@@ -75,8 +81,12 @@
     "react-dom": ">=18.0.0"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-dom": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "react": "^19.0.0",
