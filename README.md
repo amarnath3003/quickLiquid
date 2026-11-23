@@ -80,6 +80,16 @@ npm install quick-liquid
 
 Zero runtime dependencies · Node 18+ · React 18+ optional for `quick-liquid/react`.
 
+## Agent Skill
+
+Install the QuickLiquid skill in your website project to give your coding agent integration examples, material and optics guidance, motion patterns, and browser diagnostics.
+
+```bash
+npx skills add amarnath3003/quickLiquid --skill quick-liquid
+```
+
+From a local clone, use `npx skills add . --skill quick-liquid`. Ask your agent to “use the QuickLiquid skill to add a frosted navigation bar” or “use the QuickLiquid skill to debug my glass lens.” [Read the skill](skills/quick-liquid/SKILL.md).
+
 ## Quick Start
 
 ### React
