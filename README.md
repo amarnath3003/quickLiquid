@@ -23,6 +23,8 @@
   &middot;
   <a href="https://quickliquid.vercel.app/docs/"><b>API Docs</b></a>
   &middot;
+  <a href="https://skills.sh/amarnath3003/quickliquid/quick-liquid"><b>Agent Skill</b></a>
+  &middot;
   <a href="packages/quick-liquid/PHYSICS.md"><b>Physics Notes</b></a>
   &middot;
   <a href="https://www.npmjs.com/package/quick-liquid"><b>npm</b></a>
@@ -88,7 +90,13 @@ Install the QuickLiquid skill in your website project to give your coding agent 
 npx skills add amarnath3003/quickLiquid --skill quick-liquid
 ```
 
-From a local clone, use `npx skills add . --skill quick-liquid`. Ask your agent to “use the QuickLiquid skill to add a frosted navigation bar” or “use the QuickLiquid skill to debug my glass lens.” [Read the skill](skills/quick-liquid/SKILL.md).
+After installing, try this prompt in your coding agent.
+
+```text
+Use $quick-liquid to add a frosted navigation bar to this website.
+```
+
+From a local clone, use `npx skills add . --skill quick-liquid`. [View on skills.sh](https://skills.sh/amarnath3003/quickliquid/quick-liquid) · [Read the skill source](skills/quick-liquid/SKILL.md).
 
 ## Quick Start
 
